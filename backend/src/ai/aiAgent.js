@@ -103,8 +103,6 @@ function createMemory(chat_history = []) {
 
 // Optionally, implement a helper to get GCP auth client if needed
 async function getGcpAuthClient() {
-  // For most setups, credentials are loaded from GOOGLE_APPLICATION_CREDENTIALS
-  // If you need to use a helper, implement it here
   return undefined;
 }
 
