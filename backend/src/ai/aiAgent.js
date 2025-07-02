@@ -110,9 +110,7 @@ async function swarnaAIAgent(input, chat_history = []) {
   const authClient = await getGcpAuthClient();
   const model = createVertexModel(authClient);
   const tools = createTools();
-  console.log('tools :', tools);
   const memory = createMemory(chat_history);
-  console.log('memory :', memory);
 
   const executor = await initializeAgentExecutorWithOptions(tools, model, {
     agentType: 'chat-conversational-react-description',
@@ -120,7 +118,6 @@ async function swarnaAIAgent(input, chat_history = []) {
     verbose: process.env.LANGCHAIN_VERBOSE === 'true',
   });
 
-  console.log('input :', input);
   const result = await executor.invoke({ input });
   return result.output;
 }
