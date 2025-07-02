@@ -1,0 +1,14 @@
+# Node
+node_modules/
+dist/
+.env
+service-account.json
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# Vite/React
+frontend/dist/

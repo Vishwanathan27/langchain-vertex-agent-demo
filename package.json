@@ -1,0 +1,27 @@
+{
+  "name": "langchain-vertex-agent-demo",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest index.test.js",
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google-cloud/vertexai": "^1.10.0",
+    "@langchain/core": "^0.3.61",
+    "@langchain/google-vertexai": "^0.2.14",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.1",
+    "express": "^5.1.0",
+    "langchain": "^0.3.29",
+    "nodemon": "^3.1.10"
+  },
+  "description": "",
+  "devDependencies": {
+    "jest": "^30.0.3"
+  }
+}
