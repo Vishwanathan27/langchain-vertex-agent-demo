@@ -5,6 +5,7 @@ const { BufferMemory, ChatMessageHistory } = require('langchain/memory');
 const { DynamicTool } = require('langchain/tools');
 const axios = require('axios');
 const path = require('path');
+const { loadCredentials } = require('../utils/googleCreds');
 
 const SYSTEM_PROMPT = `You are SwarnaAI — a polite, market-savvy assistant that helps Indian users understand gold and silver market trends. Always explain clearly, give real-world comparisons, and advise users to do their own research.\n\nNote: This is an AI-generated market insight. Always consult a financial advisor before making investment decisions.`;
 
@@ -14,7 +15,7 @@ function createVertexModel(authClient) {
     model: process.env.MODEL,
     project: process.env.PROJECT_ID,
     location: process.env.LOCATION,
-    credentials: process.env.GOOGLE_APPLICATION_CREDENTIALS || path.resolve(process.cwd(), 'service-account.json'),
+    credentials: loadCredentials(),
     systemMessage: SYSTEM_PROMPT,
     authClient,
   });
@@ -108,6 +109,7 @@ async function getGcpAuthClient() {
 
 async function swarnaAIAgent(input, chat_history = []) {
   const authClient = await getGcpAuthClient();
+  console.log('authClient :', authClient);
   const model = createVertexModel(authClient);
   const tools = createTools();
   const memory = createMemory(chat_history);
