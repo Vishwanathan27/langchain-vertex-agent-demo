@@ -127,7 +127,7 @@ async function getGcpAuthClient() {
 
 async function swarnaAIAgent(input, chat_history = []) {
   const authClient = await getGcpAuthClient();
-  console.log('authClient :', authClient);
+
   const model = createVertexModel(authClient);
   const tools = createTools();
   const memory = createMemory(chat_history);
