@@ -6,8 +6,11 @@ const { DynamicTool } = require('langchain/tools');
 const axios = require('axios');
 const path = require('path');
 const { loadCredentials } = require('../utils/googleCreds');
+const chrono = require('chrono-node');
 
-const SYSTEM_PROMPT = `You are SwarnaAI — a polite, market-savvy assistant that helps Indian users understand gold and silver market trends. Always explain clearly, give real-world comparisons, and advise users to do their own research.\n\nNote: This is an AI-generated market insight. Always consult a financial advisor before making investment decisions.`;
+const SYSTEM_PROMPT = `You are SwarnaAI — a polite, market-savvy assistant that helps Indian users understand gold and silver market trends. Always explain clearly, give real-world comparisons, and advise users to do their own research.\n\nYou can answer questions like: 'Compare gold price today vs last week', 'How much did gold change in the past 30 days?', 'Gold price difference between today and May 1, 2024', or 'What was the gold price yesterday compared to now?'.\n\nNote: This is an AI-generated market insight. Always consult a financial advisor before making investment decisions.`;
+
+const GOLD_API_BASE = process.env.GOLD_API_BASE || 'https://www.goldapi.io/api';
 
 function createVertexModel(authClient) {
   return new ChatVertexAI({
@@ -22,13 +25,22 @@ function createVertexModel(authClient) {
 }
 
 function createTools() {
+  const GOLD_API_KEY = process.env.GOLD_API_KEY;
   return [
     new DynamicTool({
       name: 'getCurrentPrice',
       description: 'Returns the latest gold and silver prices in INR for India.',
       func: async () => {
         try {
-          const { data } = await axios.get('http://localhost:3000/api/v1/prices/goldapi');
+          const res = await fetch(`${GOLD_API_BASE}/XAU/INR`, {
+            method: 'GET',
+            headers: {
+              'x-access-token': GOLD_API_KEY,
+              'Content-Type': 'application/json',
+            },
+            redirect: 'follow',
+          });
+          const data = await res.json();
           return JSON.stringify(data);
         } catch (err) {
           return 'Could not fetch current price.';
@@ -37,47 +49,53 @@ function createTools() {
     }),
     new DynamicTool({
       name: 'getHistoricalComparison',
-      description: 'Returns gold and silver price change in INR and percent over a given number of days.',
+      description: 'Returns gold price change in INR and percent over a natural language period (e.g., "last week", "past 30 days", "yesterday", or between two dates).',
       func: async (input) => {
-        const days = parseInt(input, 10) || 7;
         try {
-          const { data } = await axios.get(`http://localhost:3000/api/v1/prices/history?days=${days}`);
-          if (!Array.isArray(data) || data.length < 2) return 'Not enough data.';
-          const first = data[0];
-          const last = data[data.length - 1];
-          const goldDiff = last.goldInr - first.goldInr;
-          const silverDiff = last.silverInr - first.silverInr;
-          const goldPct = ((goldDiff / first.goldInr) * 100).toFixed(2);
-          const silverPct = ((silverDiff / first.silverInr) * 100).toFixed(2);
-          return `Gold: ₹${first.goldInr.toFixed(2)} → ₹${last.goldInr.toFixed(2)} (${goldPct}%)\nSilver: ₹${first.silverInr.toFixed(2)} → ₹${last.silverInr.toFixed(2)} (${silverPct}%)`;
+          // Parse input for dates using chrono-node
+          let dates = chrono.parse(input);
+          let today = new Date();
+          let prev = new Date();
+          if (dates.length === 2) {
+            prev = dates[0].start.date();
+            today = dates[1].start.date();
+          } else if (dates.length === 1) {
+            prev = dates[0].start.date();
+          } else {
+            // fallback: try to extract days
+            const days = parseInt(input.match(/\d+/)?.[0], 10) || 7;
+            prev.setDate(today.getDate() - days);
+          }
+          const format = d => d.toISOString().slice(0, 10).replace(/-/g, '');
+          const todayStr = format(today);
+          const prevStr = format(prev);
+          // Fetch both days
+          const [resPrev, resToday] = await Promise.all([
+            fetch(`${GOLD_API_BASE}/XAU/INR/${prevStr}`, {
+              method: 'GET',
+              headers: {
+                'x-access-token': GOLD_API_KEY,
+                'Content-Type': 'application/json',
+              },
+              redirect: 'follow',
+            }),
+            fetch(`${GOLD_API_BASE}/XAU/INR/${todayStr}`, {
+              method: 'GET',
+              headers: {
+                'x-access-token': GOLD_API_KEY,
+                'Content-Type': 'application/json',
+              },
+              redirect: 'follow',
+            })
+          ]);
+          const prevData = await resPrev.json();
+          const todayData = await resToday.json();
+          if (!prevData.price || !todayData.price) return 'Not enough data.';
+          const goldDiff = todayData.price - prevData.price;
+          const goldPct = ((goldDiff / prevData.price) * 100).toFixed(2);
+          return `Gold: ₹${prevData.price} → ₹${todayData.price} (Change: ₹${goldDiff} / ${goldPct}%)`;
         } catch (err) {
           return 'Could not fetch historical comparison.';
-        }
-      },
-    }),
-    new DynamicTool({
-      name: 'getBuySellSuggestion',
-      description: 'Suggests BUY, SELL, or HOLD for gold/silver based on recent price trends.',
-      func: async () => {
-        try {
-          const { data } = await axios.get('http://localhost:3000/api/v1/prices/history?days=7');
-          if (!Array.isArray(data) || data.length < 2) return 'Not enough data.';
-          const first = data[0];
-          const last = data[data.length - 1];
-          const goldDiff = last.goldInr - first.goldInr;
-          const silverDiff = last.silverInr - first.silverInr;
-          let suggestion = 'HOLD';
-          let reason = 'Prices are stable.';
-          if (goldDiff > 0 && silverDiff > 0) {
-            suggestion = 'SELL';
-            reason = 'Both gold and silver have risen in the last week.';
-          } else if (goldDiff < 0 && silverDiff < 0) {
-            suggestion = 'BUY';
-            reason = 'Both gold and silver have dropped in the last week.';
-          }
-          return `${suggestion}: ${reason}`;
-        } catch (err) {
-          return 'Could not generate suggestion.';
         }
       },
     }),
