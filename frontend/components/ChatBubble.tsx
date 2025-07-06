@@ -1,5 +1,7 @@
 // ChatBubble component for user/AI messages in SwarnaAI
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatBubbleProps {
   message: string;
@@ -13,7 +15,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, sender }) => (
         sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'
       }`}
     >
-      {message}
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{message}</ReactMarkdown>
     </div>
   </div>
 );

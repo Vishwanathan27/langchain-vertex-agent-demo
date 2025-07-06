@@ -30,7 +30,7 @@ function createTools() {
     new DynamicTool({
       name: 'getCurrentPrice',
       description: 'Returns the latest gold and silver prices in INR for India.',
-      func: async () => {
+      func: async (_input) => {
         try {
           const res = await fetch(`${GOLD_API_BASE}/XAU/INR`, {
             method: 'GET',
@@ -130,12 +130,7 @@ async function swarnaAIAgent(input, chatHistory) {
   const model = createVertexModel(authClient);
   const tools = createTools();
 
-  const memory = new BufferMemory({
-    chatHistory: new ChatMessageHistory(chatHistory),
-    memoryKey: 'chat_history',
-    inputKey: 'input',
-    outputKey: 'output',
-  });
+  const memory = createMemory(chatHistory);
 
   const executor = await initializeAgentExecutorWithOptions(tools, model, {
     agentType: 'chat-conversational-react-description',
