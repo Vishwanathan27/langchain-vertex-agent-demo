@@ -125,20 +125,31 @@ async function getGcpAuthClient() {
   return undefined;
 }
 
-async function swarnaAIAgent(input, chat_history = []) {
-  const authClient = await getGcpAuthClient();
-
+async function swarnaAIAgent(input, chatHistory) {
+  const authClient = await loadCredentials();
   const model = createVertexModel(authClient);
   const tools = createTools();
-  const memory = createMemory(chat_history);
+
+  const memory = new BufferMemory({
+    chatHistory: new ChatMessageHistory(chatHistory),
+    memoryKey: 'chat_history',
+    inputKey: 'input',
+    outputKey: 'output',
+  });
 
   const executor = await initializeAgentExecutorWithOptions(tools, model, {
     agentType: 'chat-conversational-react-description',
-    memory,
     verbose: process.env.LANGCHAIN_VERBOSE === 'true',
+    memory,
+    agentArgs: {
+      systemMessage: SYSTEM_PROMPT,
+    },
   });
 
-  const result = await executor.invoke({ input });
+  const result = await executor.call({
+    input: input,
+  });
+
   return result.output;
 }
 

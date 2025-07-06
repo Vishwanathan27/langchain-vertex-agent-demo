@@ -5,8 +5,8 @@ const { swarnaAIAgent } = require('../ai/aiAgent');
 
 router.post('/chat', async (req, res, next) => {
   try {
-    const { message, chat_history } = req.body;
-    const response = await swarnaAIAgent(message, chat_history || []);
+    const { input, chat_history } = req.body;
+    const response = await swarnaAIAgent(input, chat_history || []);
     res.json({ response });
   } catch (err) {
     next(err);
