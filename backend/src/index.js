@@ -1,6 +1,8 @@
 const express = require('express');
 const dotenv = require('dotenv');
+const helmet = require('helmet');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const { VertexAI } = require('@langchain/google-vertexai');
 const { initializeAgentExecutorWithOptions } = require('langchain/agents');
 const { DynamicTool } = require('langchain/tools');
@@ -13,8 +15,22 @@ const aiRoutes = require('./routes/aiRoutes');
 dotenv.config();
 
 const app = express();
+const port = process.env.PORT || 3000;
+
+// security
+app.use(helmet());
+app.use(cors({ origin: process.env.CORS_ORIGIN })); // adjust if FE port differs
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 min
+    max: 100, // 100 requests per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+);
+
 app.use(express.json());
-app.use(cors());
+app.use(express.urlencoded({ extended: true }));
 
 const model = new VertexAI({
   credentials: process.env.GOOGLE_APPLICATION_CREDENTIALS,
@@ -72,7 +88,6 @@ app.use('/api/v1/market', aiRoutes);
 app.use(errorHandler);
 setupSwagger(app);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });

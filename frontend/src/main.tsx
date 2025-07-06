@@ -1,7 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import App from './App';
 import './index.css';
 
-const App = () => <div className="text-2xl font-bold text-center mt-10">Welcome to SwarnaAI</div>;
-
-ReactDOM.createRoot(document.getElementById('root')!).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

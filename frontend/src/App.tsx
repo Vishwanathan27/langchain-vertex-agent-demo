@@ -2,6 +2,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { sendAIMessage } from './api/ai';
 import ChatBubble from '../components/ChatBubble';
+import Chat from './components/Chat';
+import './index.css';
 
 export default function App() {
   const [input, setInput] = useState('');
@@ -63,6 +65,7 @@ export default function App() {
           Send
         </button>
       </div>
+      <Chat />
     </div>
   );
 }
