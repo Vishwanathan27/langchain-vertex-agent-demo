@@ -3,14 +3,52 @@ const { ChatVertexAI } = require('@langchain/google-vertexai');
 const { initializeAgentExecutorWithOptions } = require('langchain/agents');
 const { BufferMemory, ChatMessageHistory } = require('langchain/memory');
 const { DynamicTool } = require('langchain/tools');
-const axios = require('axios');
-const path = require('path');
 const { loadCredentials } = require('../utils/googleCreds');
 const chrono = require('chrono-node');
 
-const SYSTEM_PROMPT = `You are SwarnaAI — a polite, market-savvy assistant that helps Indian users understand gold and silver market trends. Always explain clearly, give real-world comparisons, and advise users to do their own research.\n\nYou can answer questions like: 'Compare gold price today vs last week', 'How much did gold change in the past 30 days?', 'Gold price difference between today and May 1, 2024', or 'What was the gold price yesterday compared to now?'.\n\nNote: This is an AI-generated market insight. Always consult a financial advisor before making investment decisions.`;
+const SYSTEM_PROMPT = `You are SwarnaAI, a friendly and knowledgeable financial assistant specializing in the Indian precious metals market. Your mission is to provide users with clear, accurate, and insightful information about gold and silver prices.
+
+**Your Persona:**
+- **Polite and Professional:** Always address users with respect and maintain a positive tone.
+- **Market-Savvy:** Demonstrate your expertise by providing context and comparisons.
+- **Helpful and Guiding:** Encourage users to think critically and seek professional advice.
+- **Rooted in India:** Frame your responses for an Indian audience, using INR and local market context.
+
+**Core Capabilities:**
+- **Current Prices:** You can fetch the latest gold and silver prices.
+- **Historical Analysis:** You can compare prices over various timeframes (e.g., "last week," "past 30 days," or between specific dates).
+- **Clear Explanations:** You break down market changes into simple terms, explaining the difference in both percentage and absolute INR.
+
+**Interaction Guidelines:**
+- **Be Clear and Concise:** Avoid jargon. Explain concepts in a way that is easy for a non-expert to understand.
+- **Use Real-World Analogies:** When helpful, use analogies to make price changes more tangible (e.g., "the price of 10 grams of gold has increased by the cost of a small family dinner").
+- **Always Include a Disclaimer:** Conclude every response that contains market data with the following disclaimer: "Note: This is an AI-generated market insight. Always consult a financial advisor before making investment decisions."
+- **Handle Ambiguity:** If a user's request is unclear, ask for clarification. For example, if they ask for a price without specifying a date, assume they mean today's price but mention it.
+
+**Example Questions You Can Handle:**
+- 'Compare gold price today vs last week.'
+- 'How much did gold change in the past 30 days?'
+- 'What was the gold price difference between today and May 1, 2024?'
+- 'What was the gold price yesterday compared to now?'`;
 
 const GOLD_API_BASE = process.env.GOLD_API_BASE || 'https://www.goldapi.io/api';
+
+const METAL_SYMBOLS = {
+  gold: 'XAU',
+  silver: 'XAG',
+  platinum: 'XPT',
+  palladium: 'XPD',
+};
+
+function getMetalInfo(input) {
+  const metalInput = (input || '').toLowerCase();
+  for (const metal in METAL_SYMBOLS) {
+    if (metalInput.includes(metal)) {
+      return { symbol: METAL_SYMBOLS[metal], name: metal };
+    }
+  }
+  return { symbol: 'XAU', name: 'gold' }; // Default to gold
+}
 
 function createVertexModel(authClient) {
   return new ChatVertexAI({
@@ -29,10 +67,11 @@ function createTools() {
   return [
     new DynamicTool({
       name: 'getCurrentPrice',
-      description: 'Returns the latest gold and silver prices in INR for India.',
-      func: async (_input) => {
+      description: 'Returns the latest price for a specified precious metal (gold, silver, platinum, or palladium) in INR for India. Input should be a string containing the name of the metal.',
+      func: async (input) => {
         try {
-          const res = await fetch(`${GOLD_API_BASE}/XAU/INR`, {
+          const { symbol: metalSymbol, name: metalName } = getMetalInfo(input);
+          const res = await fetch(`${GOLD_API_BASE}/${metalSymbol}/INR`, {
             method: 'GET',
             headers: {
               'x-access-token': GOLD_API_KEY,
@@ -41,17 +80,18 @@ function createTools() {
             redirect: 'follow',
           });
           const data = await res.json();
-          return JSON.stringify(data);
+          return JSON.stringify({ ...data, metal: metalName });
         } catch (err) {
-          return 'Could not fetch current price.';
+          return `Could not fetch current price for ${input}.`;
         }
       },
     }),
     new DynamicTool({
       name: 'getHistoricalComparison',
-      description: 'Returns gold price change in INR and percent over a natural language period (e.g., "last week", "past 30 days", "yesterday", or between two dates).',
+      description: 'Returns the price change for a specified precious metal (gold, silver, platinum, or palladium) in INR and percent over a natural language period (e.g., "last week", "past 30 days", "yesterday", or between two dates). The input must contain both the metal name and the time period.',
       func: async (input) => {
         try {
+          const { symbol: metalSymbol, name: metalName } = getMetalInfo(input);
           // Parse input for dates using chrono-node
           let dates = chrono.parse(input);
           let today = new Date();
@@ -71,7 +111,7 @@ function createTools() {
           const prevStr = format(prev);
           // Fetch both days
           const [resPrev, resToday] = await Promise.all([
-            fetch(`${GOLD_API_BASE}/XAU/INR/${prevStr}`, {
+            fetch(`${GOLD_API_BASE}/${metalSymbol}/INR/${prevStr}`, {
               method: 'GET',
               headers: {
                 'x-access-token': GOLD_API_KEY,
@@ -79,7 +119,7 @@ function createTools() {
               },
               redirect: 'follow',
             }),
-            fetch(`${GOLD_API_BASE}/XAU/INR/${todayStr}`, {
+            fetch(`${GOLD_API_BASE}/${metalSymbol}/INR/${todayStr}`, {
               method: 'GET',
               headers: {
                 'x-access-token': GOLD_API_KEY,
@@ -91,9 +131,13 @@ function createTools() {
           const prevData = await resPrev.json();
           const todayData = await resToday.json();
           if (!prevData.price || !todayData.price) return 'Not enough data.';
-          const goldDiff = todayData.price - prevData.price;
-          const goldPct = ((goldDiff / prevData.price) * 100).toFixed(2);
-          return `Gold: ₹${prevData.price} → ₹${todayData.price} (Change: ₹${goldDiff} / ${goldPct}%)`;
+          const priceDiff = todayData.price - prevData.price;
+          const pricePct = ((priceDiff / prevData.price) * 100).toFixed(2);
+          const capitalizedMetalName =
+            metalName.charAt(0).toUpperCase() + metalName.slice(1);
+          return `${capitalizedMetalName}: ₹${prevData.price} → ₹${
+            todayData.price
+          } (Change: ₹${priceDiff.toFixed(2)} / ${pricePct}%)`;
         } catch (err) {
           return 'Could not fetch historical comparison.';
         }
@@ -120,10 +164,6 @@ function createMemory(chat_history = []) {
   });
 }
 
-// Optionally, implement a helper to get GCP auth client if needed
-async function getGcpAuthClient() {
-  return undefined;
-}
 
 async function swarnaAIAgent(input, chatHistory) {
   const authClient = await loadCredentials();
