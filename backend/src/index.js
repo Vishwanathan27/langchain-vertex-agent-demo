@@ -7,10 +7,12 @@ const { VertexAI } = require('@langchain/google-vertexai');
 const { initializeAgentExecutorWithOptions } = require('langchain/agents');
 const { DynamicTool } = require('langchain/tools');
 const priceRoutes = require('./routes/priceRoutes');
+const enhancedPriceRoutes = require('./routes/enhancedPriceRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const setupSwagger = require('./swagger');
 const aiRoutes = require('./routes/aiRoutes');
+const PriceStreamServer = require('./websocket/priceStream');
 
 dotenv.config();
 
@@ -82,6 +84,7 @@ app.post('/api/converse', async (req, res) => {
 });
 
 app.use('/api/v1/prices', priceRoutes);
+app.use('/api/metals', enhancedPriceRoutes);
 app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/market', aiRoutes);
 
@@ -91,3 +94,7 @@ setupSwagger(app);
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
+
+// Start WebSocket server for real-time price updates
+const priceStreamServer = new PriceStreamServer(3001);
+priceStreamServer.start();
