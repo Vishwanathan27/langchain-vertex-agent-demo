@@ -1,16 +1,23 @@
 // Enhanced API routes for real-time precious metals data
 const express = require('express');
-const { 
-  getAllMetalPrices, 
-  getMetalPrice, 
-  getHistoricalPrice, 
-  getPriceRange,
-  getAPIStats,
-  METALS,
-  CURRENCIES
-} = require('../services/goldapiPriceService');
+const metalpricerService = require('../services/apiAbstraction');
 const { swarnaAIAgent } = require('../ai/aiAgent');
+const { authenticate, authorize, adminOnly, optionalAuth } = require('../middleware/auth');
 const router = express.Router();
+
+// Metal mappings for backwards compatibility
+const METALS = {
+  'gold': 'XAU',
+  'silver': 'XAG',
+  'platinum': 'XPT',
+  'palladium': 'XPD'
+};
+
+const CURRENCIES = {
+  'INR': 'INR',
+  'USD': 'USD',
+  'EUR': 'EUR'
+};
 
 // Use imported METALS from service
 
@@ -37,33 +44,22 @@ const router = express.Router();
  *                 palladium:
  *                   $ref: '#/components/schemas/PriceData'
  */
-router.get('/live', async (req, res) => {
+router.get('/live', optionalAuth, async (req, res) => {
   try {
-    const prices = {};
+    const response = await metalpricerService.getAllLivePrices('INR');
     
-    // Fetch prices for all metals concurrently
-    const pricePromises = Object.keys(METALS).map(async (metal) => {
-      try {
-        const metalSymbol = METALS[metal];
-        const priceData = await getMetalPrice(metalSymbol, 'INR');
-        return { metal, data: priceData };
-      } catch (error) {
-        console.error(`Error fetching ${metal} price:`, error);
-        return { metal, data: { error: `Failed to fetch ${metal} price` } };
-      }
-    });
-
-    const results = await Promise.all(pricePromises);
-    
-    results.forEach(({ metal, data }) => {
-      prices[metal] = data;
-    });
-
-    res.json({
-      success: true,
-      timestamp: new Date().toISOString(),
-      data: prices
-    });
+    if (response.success) {
+      res.json({
+        success: true,
+        timestamp: response.timestamp,
+        data: response.data
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: response.error?.message || 'Failed to fetch live prices'
+      });
+    }
   } catch (error) {
     console.error('Error fetching live prices:', error);
     res.status(500).json({
@@ -106,14 +102,21 @@ router.get('/:metal/live', async (req, res) => {
     }
 
     const metalSymbol = METALS[metal];
-    const priceData = await getMetalPrice(metalSymbol, 'INR');
+    const response = await metalpricerService.getLivePrice(metalSymbol, 'INR');
     
-    res.json({
-      success: true,
-      timestamp: new Date().toISOString(),
-      metal,
-      data: priceData
-    });
+    if (response.success) {
+      res.json({
+        success: true,
+        timestamp: response.timestamp,
+        metal,
+        data: response.data
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: response.error?.message || `Failed to fetch ${metal} price`
+      });
+    }
   } catch (error) {
     console.error(`Error fetching ${req.params.metal} price:`, error);
     res.status(500).json({
@@ -171,14 +174,18 @@ router.get('/:metal/historical/:date', async (req, res) => {
     const formattedDate = date.replace(/-/g, '');
     
     // Fetch historical data using our service
-    const data = await getHistoricalPrice(METALS[metal], 'INR', formattedDate);
+    const response = await metalpricerService.getHistoricalPrice(METALS[metal], 'INR', formattedDate);
     
-    if (data.error) {
+    if (!response.success) {
       return res.status(404).json({
         success: false,
-        error: data.error
+        error: response.error?.message || 'Historical data not found'
       });
     }
+    
+    const data = response.data;
+    
+    // Remove the old error check since we're handling it above
 
     res.json({
       success: true,
@@ -237,8 +244,8 @@ router.get('/:metal/chart/:period', async (req, res) => {
       // Get current market price for baseline
       let basePrice;
       try {
-        const currentPrice = await getMetalPrice(METALS[metal], 'INR');
-        basePrice = currentPrice.price || (metal === 'gold' ? 5400 : metal === 'silver' ? 82 : metal === 'platinum' ? 2890 : 1890);
+        const response = await metalpricerService.getLivePrice(METALS[metal], 'INR');
+        basePrice = response.success ? response.data.price : (metal === 'gold' ? 5400 : metal === 'silver' ? 82 : metal === 'platinum' ? 2890 : 1890);
       } catch (error) {
         basePrice = metal === 'gold' ? 5400 : metal === 'silver' ? 82 : metal === 'platinum' ? 2890 : 1890;
       }
@@ -475,5 +482,489 @@ router.post('/alerts', async (req, res) => {
  *           format: date-time
  *           description: Timestamp of the price data
  */
+
+/**
+ * @swagger
+ * /api/admin/provider/switch:
+ *   post:
+ *     summary: Switch primary API provider
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               provider:
+ *                 type: string
+ *                 enum: [goldapi, metalpriceapi, db]
+ *             required:
+ *               - provider
+ *     responses:
+ *       200:
+ *         description: Provider switched successfully
+ */
+router.post('/admin/provider/switch', async (req, res) => {
+  try {
+    const { provider } = req.body;
+    
+    if (!['goldapi', 'metalpriceapi', 'db'].includes(provider)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid provider. Must be goldapi, metalpriceapi, or db'
+      });
+    }
+    
+    metalpricerService.switchProvider(provider);
+    
+    let message = `Switched to ${provider} provider`;
+    if (provider === 'db') {
+      message = 'Switched to DB-only mode - no external API calls will be made';
+    }
+    
+    res.json({
+      success: true,
+      message,
+      provider,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error switching provider:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to switch provider'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/provider/health:
+ *   get:
+ *     summary: Check health of all API providers
+ *     responses:
+ *       200:
+ *         description: Health status of all providers
+ */
+router.get('/admin/provider/health', async (req, res) => {
+  try {
+    const providers = ['goldapi', 'metalpriceapi'];
+    const healthChecks = await Promise.all(
+      providers.map(provider => metalpricerService.healthCheck(provider))
+    );
+    
+    res.json({
+      success: true,
+      data: {
+        primary: metalpricerService.primaryProvider,
+        fallback: metalpricerService.fallbackProvider,
+        health: healthChecks
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error checking provider health:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check provider health'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/provider/status:
+ *   get:
+ *     summary: Get current API provider configuration
+ *     responses:
+ *       200:
+ *         description: Current provider configuration
+ */
+router.get('/admin/provider/status', async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        primary: metalpricerService.primaryProvider,
+        fallback: metalpricerService.fallbackProvider,
+        retryCount: metalpricerService.retryCount,
+        retryDelay: metalpricerService.retryDelay
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error getting provider status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get provider status'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/metals/convert:
+ *   get:
+ *     summary: Convert currency amounts using MetalPriceAPI
+ *     parameters:
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Source currency/metal
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Target currency/metal
+ *       - in: query
+ *         name: amount
+ *         schema:
+ *           type: number
+ *         required: true
+ *         description: Amount to convert
+ *     responses:
+ *       200:
+ *         description: Conversion result
+ */
+router.get('/convert', async (req, res) => {
+  try {
+    const { from, to, amount } = req.query;
+    
+    if (!from || !to || !amount) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required parameters: from, to, amount'
+      });
+    }
+
+    const response = await metalpricerService.convertPrice(from, to, parseFloat(amount));
+    
+    if (response.success) {
+      res.json({
+        success: true,
+        timestamp: response.timestamp,
+        data: response.data
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: response.error?.message || 'Failed to convert price'
+      });
+    }
+  } catch (error) {
+    console.error('Error converting price:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to convert price'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/metals/timeframe:
+ *   get:
+ *     summary: Get exchange rates for a specific time period
+ *     parameters:
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: true
+ *         description: Start date (YYYY-MM-DD)
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: true
+ *         description: End date (YYYY-MM-DD)
+ *       - in: query
+ *         name: base
+ *         schema:
+ *           type: string
+ *           default: INR
+ *         description: Base currency
+ *       - in: query
+ *         name: currencies
+ *         schema:
+ *           type: string
+ *           default: XAU,XAG,XPT,XPD
+ *         description: Comma-separated list of currencies
+ *     responses:
+ *       200:
+ *         description: Timeframe data
+ */
+router.get('/timeframe', async (req, res) => {
+  try {
+    const { start_date, end_date, base = 'INR', currencies = 'XAU,XAG,XPT,XPD' } = req.query;
+    
+    if (!start_date || !end_date) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required parameters: start_date, end_date'
+      });
+    }
+
+    const response = await metalpricerService.getTimeframeData(start_date, end_date, base, currencies);
+    
+    if (response.success) {
+      res.json({
+        success: true,
+        timestamp: response.timestamp,
+        data: response.data
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: response.error?.message || 'Failed to get timeframe data'
+      });
+    }
+  } catch (error) {
+    console.error('Error getting timeframe data:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get timeframe data'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/metals/change:
+ *   get:
+ *     summary: Get currency change parameters (margin, percentage)
+ *     parameters:
+ *       - in: query
+ *         name: base
+ *         schema:
+ *           type: string
+ *           default: INR
+ *         description: Base currency
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: true
+ *         description: Start date (YYYY-MM-DD)
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: true
+ *         description: End date (YYYY-MM-DD)
+ *       - in: query
+ *         name: currencies
+ *         schema:
+ *           type: string
+ *           default: XAU,XAG,XPT,XPD
+ *         description: Comma-separated list of currencies
+ *     responses:
+ *       200:
+ *         description: Change data
+ */
+router.get('/change', async (req, res) => {
+  try {
+    const { base = 'INR', start_date, end_date, currencies = 'XAU,XAG,XPT,XPD' } = req.query;
+    
+    if (!start_date || !end_date) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required parameters: start_date, end_date'
+      });
+    }
+
+    const response = await metalpricerService.getChangeData(base, start_date, end_date, currencies);
+    
+    if (response.success) {
+      res.json({
+        success: true,
+        timestamp: response.timestamp,
+        data: response.data
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: response.error?.message || 'Failed to get change data'
+      });
+    }
+  } catch (error) {
+    console.error('Error getting change data:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get change data'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/metals/carat:
+ *   get:
+ *     summary: Get gold prices by carat
+ *     responses:
+ *       200:
+ *         description: Carat data
+ */
+router.get('/carat', async (req, res) => {
+  try {
+    const response = await metalpricerService.getCaratData();
+    
+    if (response.success) {
+      res.json({
+        success: true,
+        timestamp: response.timestamp,
+        data: response.data
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: response.error?.message || 'Failed to get carat data'
+      });
+    }
+  } catch (error) {
+    console.error('Error getting carat data:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get carat data'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/metals/symbols:
+ *   get:
+ *     summary: Get list of all supported currencies and metals
+ *     responses:
+ *       200:
+ *         description: Symbols data
+ */
+router.get('/symbols', async (req, res) => {
+  try {
+    const response = await metalpricerService.getSymbols();
+    
+    if (response.success) {
+      res.json({
+        success: true,
+        timestamp: response.timestamp,
+        data: response.data
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: response.error?.message || 'Failed to get symbols'
+      });
+    }
+  } catch (error) {
+    console.error('Error getting symbols:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get symbols'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/stats:
+ *   get:
+ *     summary: Get API usage statistics (admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: provider
+ *         schema:
+ *           type: string
+ *         description: Filter by provider
+ *       - in: query
+ *         name: hours
+ *         schema:
+ *           type: number
+ *           default: 24
+ *         description: Hours to look back
+ *     responses:
+ *       200:
+ *         description: API statistics
+ */
+router.get('/admin/stats', adminOnly, async (req, res) => {
+  try {
+    const { provider, hours = 24 } = req.query;
+    const response = await metalpricerService.getAPIStats(provider, parseInt(hours));
+    
+    if (response.success) {
+      res.json({
+        success: true,
+        timestamp: response.timestamp,
+        stats: response.data
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: response.error?.message || 'Failed to get API stats'
+      });
+    }
+  } catch (error) {
+    console.error('Error getting API stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get API stats'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/cleanup:
+ *   post:
+ *     summary: Clean up old data (admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               daysToKeep:
+ *                 type: number
+ *                 default: 30
+ *     responses:
+ *       200:
+ *         description: Cleanup completed
+ */
+router.post('/admin/cleanup', adminOnly, async (req, res) => {
+  try {
+    const { daysToKeep = 30 } = req.body;
+    const response = await metalpricerService.cleanOldData(parseInt(daysToKeep));
+    
+    if (response.success) {
+      res.json({
+        success: true,
+        message: `Cleaned up data older than ${daysToKeep} days`,
+        timestamp: response.timestamp
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: response.error?.message || 'Failed to clean up data'
+      });
+    }
+  } catch (error) {
+    console.error('Error cleaning up data:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clean up data'
+    });
+  }
+});
 
 module.exports = router;

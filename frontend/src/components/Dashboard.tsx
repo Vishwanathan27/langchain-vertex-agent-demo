@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Calendar, BarChart3, Bell, Settings, Search, User, Moon, Sun, Filter } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import MetalCard from './MetalCard';
 import PriceChart from './PriceChart';
 import HistoricalCalendar from './HistoricalCalendar';
 import AIInsights from './AIInsights';
+import UserProfile from './UserProfile';
 import { useRealTimePrices } from '../hooks/useRealTimePrices';
 
 interface Metal {
@@ -38,7 +40,7 @@ const Dashboard: React.FC = () => {
   const metals: Metal[] = [];
   
   if (prices && !loading) {
-    if (prices.gold && !prices.gold.error) {
+    if (prices.gold && prices.gold.price) {
       metals.push({
         symbol: 'XAU',
         name: 'Gold',
@@ -55,7 +57,7 @@ const Dashboard: React.FC = () => {
       });
     }
     
-    if (prices.silver && !prices.silver.error) {
+    if (prices.silver && prices.silver.price) {
       metals.push({
         symbol: 'XAG',
         name: 'Silver',
@@ -72,7 +74,7 @@ const Dashboard: React.FC = () => {
       });
     }
     
-    if (prices.platinum && !prices.platinum.error) {
+    if (prices.platinum && prices.platinum.price) {
       metals.push({
         symbol: 'XPT',
         name: 'Platinum',
@@ -89,7 +91,7 @@ const Dashboard: React.FC = () => {
       });
     }
     
-    if (prices.palladium && !prices.palladium.error) {
+    if (prices.palladium && prices.palladium.price) {
       metals.push({
         symbol: 'XPD',
         name: 'Palladium',
@@ -179,18 +181,6 @@ const Dashboard: React.FC = () => {
                   }`}
                 />
               </div>
-              <motion.button 
-                onClick={toggleTheme}
-                className={`p-2 transition-all duration-300 rounded-lg hover:scale-110 ${
-                  isDark 
-                    ? 'text-yellow-400 hover:text-yellow-300 hover:bg-gray-700' 
-                    : 'text-slate-600 hover:text-amber-600 hover:bg-slate-100'
-                }`}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </motion.button>
               <button className={`p-2 transition-colors duration-300 rounded-lg hover:scale-110 ${
                 isDark 
                   ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700' 
@@ -217,13 +207,7 @@ const Dashboard: React.FC = () => {
               }`}>
                 <Settings className="h-5 w-5" />
               </button>
-              <button className={`p-2 transition-colors duration-300 rounded-lg hover:scale-110 ${
-                isDark 
-                  ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700' 
-                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-              }`}>
-                <User className="h-5 w-5" />
-              </button>
+              <UserProfile />
             </div>
           </div>
         </div>

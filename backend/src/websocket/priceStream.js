@@ -1,6 +1,7 @@
 // WebSocket server for real-time precious metals price streaming
 const WebSocket = require('ws');
 const { getGoldApiLivePrice } = require('../services/goldapiPriceService');
+const { findAvailablePort, killPortProcess } = require('../utils/serverUtils');
 
 const METALS = {
   gold: 'XAU',
@@ -18,40 +19,63 @@ class PriceStreamServer {
     this.lastPrices = {};
   }
 
-  start() {
-    this.wss = new WebSocket.Server({ port: this.port });
-    
-    this.wss.on('connection', (ws, req) => {
-      console.log('New WebSocket connection established');
-      this.clients.add(ws);
+  async start() {
+    try {
+      // Handle port conflicts
+      await killPortProcess(this.port);
       
-      // Send current prices to the new client
-      this.sendCurrentPrices(ws);
-      
-      ws.on('close', () => {
-        console.log('WebSocket connection closed');
-        this.clients.delete(ws);
-      });
-      
-      ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
-        this.clients.delete(ws);
-      });
-      
-      ws.on('message', (message) => {
-        try {
-          const data = JSON.parse(message);
-          this.handleClientMessage(ws, data);
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+      // Find available port if needed
+      let actualPort = this.port;
+      try {
+        this.wss = new WebSocket.Server({ port: actualPort });
+      } catch (error) {
+        if (error.code === 'EADDRINUSE') {
+          actualPort = await findAvailablePort(this.port + 1);
+          this.wss = new WebSocket.Server({ port: actualPort });
+          console.log(`📍 WebSocket server using port ${actualPort} instead of ${this.port}`);
+        } else {
+          throw error;
         }
+      }
+      
+      this.port = actualPort;
+      
+      this.wss.on('connection', (ws, req) => {
+        console.log('New WebSocket connection established');
+        this.clients.add(ws);
+      
+        // Send current prices to the new client
+        this.sendCurrentPrices(ws);
+        
+        ws.on('close', () => {
+          console.log('WebSocket connection closed');
+          this.clients.delete(ws);
+        });
+        
+        ws.on('error', (error) => {
+          console.error('WebSocket error:', error);
+          this.clients.delete(ws);
+        });
+        
+        ws.on('message', (message) => {
+          try {
+            const data = JSON.parse(message);
+            this.handleClientMessage(ws, data);
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+          }
+        });
       });
-    });
-    
-    // Start price update interval
-    this.startPriceUpdates();
-    
-    console.log(`WebSocket server started on port ${this.port}`);
+      
+      // Start price update interval
+      this.startPriceUpdates();
+      
+      console.log(`🔌 WebSocket server started on port ${this.port}`);
+      return this.wss;
+    } catch (error) {
+      console.error('❌ Failed to start WebSocket server:', error);
+      throw error;
+    }
   }
 
   async sendCurrentPrices(ws) {

@@ -21,7 +21,28 @@ const PriceChart: React.FC<PriceChartProps> = ({ metal, timeframe }) => {
   const [loading, setLoading] = useState(false);
   const { isDark } = useTheme();
 
-  // Generate sample data (replace with real API call)
+  // Fetch real chart data from API
+  const fetchChartData = async () => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/metals/${metal}/chart/${timeframe}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch chart data');
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error('Failed to fetch chart data:', error);
+      // Fallback to sample data if API fails
+      return generateSampleData();
+    }
+  };
+
+  // Generate sample data (fallback)
   const generateSampleData = () => {
     const data: ChartData[] = [];
     const basePrice = metal === 'gold' ? 5400 : metal === 'silver' ? 82 : metal === 'platinum' ? 2890 : 1890;
@@ -42,12 +63,20 @@ const PriceChart: React.FC<PriceChartProps> = ({ metal, timeframe }) => {
   };
 
   useEffect(() => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setChartData(generateSampleData());
-      setLoading(false);
-    }, 500);
+    const loadChartData = async () => {
+      setLoading(true);
+      try {
+        const data = await fetchChartData();
+        setChartData(data);
+      } catch (error) {
+        console.error('Error loading chart data:', error);
+        setChartData(generateSampleData());
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadChartData();
   }, [metal, timeframe]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {

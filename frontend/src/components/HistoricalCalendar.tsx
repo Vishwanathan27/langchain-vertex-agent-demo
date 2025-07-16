@@ -105,7 +105,7 @@ const HistoricalCalendar: React.FC<HistoricalCalendarProps> = ({ selectedMetal, 
 
   return (
     <div className="space-y-4">
-      <style jsx>{`
+      <style>{`
         .react-calendar {
           width: 100%;
           border: none;

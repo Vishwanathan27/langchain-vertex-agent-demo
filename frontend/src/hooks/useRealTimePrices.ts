@@ -53,13 +53,13 @@ export const useRealTimePrices = () => {
       // Only process metals that have valid data (no errors)
       const formattedData: Partial<RealTimePricesData> = {};
       
-      if (result.data.gold && !result.data.gold.error && result.data.gold.price) {
+      if (result.data.gold && result.data.gold.price) {
         formattedData.gold = {
           price: result.data.gold.price,
-          change: result.data.gold.change || 0,
-          changePercent: result.data.gold.changePercent || 0,
-          high: result.data.gold.high || result.data.gold.price,
-          low: result.data.gold.low || result.data.gold.price,
+          change: result.data.gold.change ?? 0,
+          changePercent: result.data.gold.changePercent ?? 0,
+          high: result.data.gold.high ?? result.data.gold.price,
+          low: result.data.gold.low ?? result.data.gold.price,
           timestamp: new Date(),
           price_gram_24k: result.data.gold.price_gram_24k,
           price_gram_22k: result.data.gold.price_gram_22k,
@@ -68,13 +68,13 @@ export const useRealTimePrices = () => {
         };
       }
       
-      if (result.data.silver && !result.data.silver.error && result.data.silver.price) {
+      if (result.data.silver && result.data.silver.price) {
         formattedData.silver = {
           price: result.data.silver.price,
-          change: result.data.silver.change || 0,
-          changePercent: result.data.silver.changePercent || 0,
-          high: result.data.silver.high || result.data.silver.price,
-          low: result.data.silver.low || result.data.silver.price,
+          change: result.data.silver.change ?? 0,
+          changePercent: result.data.silver.changePercent ?? 0,
+          high: result.data.silver.high ?? result.data.silver.price,
+          low: result.data.silver.low ?? result.data.silver.price,
           timestamp: new Date(),
           price_gram_24k: result.data.silver.price_gram_24k,
           price_gram_22k: result.data.silver.price_gram_22k,
@@ -83,13 +83,13 @@ export const useRealTimePrices = () => {
         };
       }
       
-      if (result.data.platinum && !result.data.platinum.error && result.data.platinum.price) {
+      if (result.data.platinum && result.data.platinum.price) {
         formattedData.platinum = {
           price: result.data.platinum.price,
-          change: result.data.platinum.change || 0,
-          changePercent: result.data.platinum.changePercent || 0,
-          high: result.data.platinum.high || result.data.platinum.price,
-          low: result.data.platinum.low || result.data.platinum.price,
+          change: result.data.platinum.change ?? 0,
+          changePercent: result.data.platinum.changePercent ?? 0,
+          high: result.data.platinum.high ?? result.data.platinum.price,
+          low: result.data.platinum.low ?? result.data.platinum.price,
           timestamp: new Date(),
           price_gram_24k: result.data.platinum.price_gram_24k,
           price_gram_22k: result.data.platinum.price_gram_22k,
@@ -98,13 +98,13 @@ export const useRealTimePrices = () => {
         };
       }
       
-      if (result.data.palladium && !result.data.palladium.error && result.data.palladium.price) {
+      if (result.data.palladium && result.data.palladium.price) {
         formattedData.palladium = {
           price: result.data.palladium.price,
-          change: result.data.palladium.change || 0,
-          changePercent: result.data.palladium.changePercent || 0,
-          high: result.data.palladium.high || result.data.palladium.price,
-          low: result.data.palladium.low || result.data.palladium.price,
+          change: result.data.palladium.change ?? 0,
+          changePercent: result.data.palladium.changePercent ?? 0,
+          high: result.data.palladium.high ?? result.data.palladium.price,
+          low: result.data.palladium.low ?? result.data.palladium.price,
           timestamp: new Date(),
           price_gram_24k: result.data.palladium.price_gram_24k,
           price_gram_22k: result.data.palladium.price_gram_22k,
@@ -133,102 +133,14 @@ export const useRealTimePrices = () => {
     // Initial fetch
     fetchPrices();
 
-    // Set up WebSocket connection for real-time updates
-    let ws: WebSocket | null = null;
-    
-    const connectWebSocket = () => {
-      try {
-        ws = new WebSocket(WS_URL);
-        
-        ws.onopen = () => {
-          console.log('WebSocket connected');
-        };
-        
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            
-            if (data.type === 'priceUpdate' && data.data) {
-              const formattedData: RealTimePricesData = {
-                gold: {
-                  price: data.data.gold?.price || 0,
-                  change: data.data.gold?.change || 0,
-                  changePercent: data.data.gold?.changePercent || 0,
-                  high: data.data.gold?.high || 0,
-                  low: data.data.gold?.low || 0,
-                  timestamp: new Date(data.data.gold?.timestamp || Date.now())
-                },
-                silver: {
-                  price: data.data.silver?.price || 0,
-                  change: data.data.silver?.change || 0,
-                  changePercent: data.data.silver?.changePercent || 0,
-                  high: data.data.silver?.high || 0,
-                  low: data.data.silver?.low || 0,
-                  timestamp: new Date(data.data.silver?.timestamp || Date.now())
-                },
-                platinum: {
-                  price: data.data.platinum?.price || 0,
-                  change: data.data.platinum?.change || 0,
-                  changePercent: data.data.platinum?.changePercent || 0,
-                  high: data.data.platinum?.high || 0,
-                  low: data.data.platinum?.low || 0,
-                  timestamp: new Date(data.data.platinum?.timestamp || Date.now())
-                },
-                palladium: {
-                  price: data.data.palladium?.price || 0,
-                  change: data.data.palladium?.change || 0,
-                  changePercent: data.data.palladium?.changePercent || 0,
-                  high: data.data.palladium?.high || 0,
-                  low: data.data.palladium?.low || 0,
-                  timestamp: new Date(data.data.palladium?.timestamp || Date.now())
-                }
-              };
-              
-              setPrices(formattedData);
-              setLastUpdated(new Date());
-            }
-          } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
-          }
-        };
-        
-        ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-        };
-        
-        ws.onclose = () => {
-          console.log('WebSocket disconnected');
-          // Attempt to reconnect after 5 seconds
-          setTimeout(connectWebSocket, 5000);
-        };
-      } catch (error) {
-        console.error('Failed to connect WebSocket:', error);
-        // Fallback to interval-based updates
-        const interval = setInterval(() => {
-          fetchPrices();
-        }, 60000); // Update every minute
-        
-        return () => {
-          clearInterval(interval);
-        };
-      }
-    };
-    
-    // Try WebSocket connection, fallback to polling
-    connectWebSocket();
-    
-    // Fallback interval in case WebSocket fails
-    const fallbackInterval = setInterval(() => {
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        fetchPrices();
-      }
-    }, 120000); // Update every 2 minutes as fallback
+    // Disable WebSocket for now since server is not running
+    // Set up periodic refresh instead
+    const refreshInterval = setInterval(() => {
+      fetchPrices();
+    }, 300000); // Update every 5 minutes
 
     return () => {
-      if (ws) {
-        ws.close();
-      }
-      clearInterval(fallbackInterval);
+      clearInterval(refreshInterval);
     };
   }, [fetchPrices]);
 

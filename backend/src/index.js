@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const { VertexAI } = require('@langchain/google-vertexai');
 const { initializeAgentExecutorWithOptions } = require('langchain/agents');
@@ -9,19 +10,24 @@ const { DynamicTool } = require('langchain/tools');
 const priceRoutes = require('./routes/priceRoutes');
 const enhancedPriceRoutes = require('./routes/enhancedPriceRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const authRoutes = require('./routes/authRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const setupSwagger = require('./swagger');
 const aiRoutes = require('./routes/aiRoutes');
 const PriceStreamServer = require('./websocket/priceStream');
+const db = require('./db/connection');
+const { startServer, setupGracefulShutdown, configureCORS } = require('./utils/serverUtils');
+const { initializeMockData } = require('./utils/mockDataGenerator');
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = parseInt(process.env.PORT) || 3000;
+const wsPort = parseInt(process.env.WEBSOCKET_PORT) || 3001;
 
 // security
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN })); // adjust if FE port differs
+app.use(cors(configureCORS(app)));
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000, // 15 min
@@ -33,6 +39,10 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Make database available to all routes
+app.locals.db = db;
 
 const model = new VertexAI({
   credentials: process.env.GOOGLE_APPLICATION_CREDENTIALS,
@@ -87,14 +97,36 @@ app.use('/api/v1/prices', priceRoutes);
 app.use('/api/metals', enhancedPriceRoutes);
 app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/market', aiRoutes);
+app.use('/api/auth', authRoutes);
 
 app.use(errorHandler);
 setupSwagger(app);
 
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
+// Start servers gracefully
+async function startServers() {
+  try {
+    // Start main HTTP server
+    const { server: httpServer, port: actualPort } = await startServer(app, port, 'HTTP Server');
+    
+    // Start WebSocket server for real-time price updates
+    const priceStreamServer = new PriceStreamServer(wsPort);
+    const wsServer = await priceStreamServer.start();
+    
+    // Setup graceful shutdown
+    setupGracefulShutdown(httpServer, wsServer);
+    
+    // Display feature flag status
+    console.log(`🏗️  Feature Flag - API Provider: ${process.env.PRIMARY_API_PROVIDER || 'metalpriceapi'}`);
+    if (process.env.PRIMARY_API_PROVIDER === 'db') {
+      console.log('🏦 Running in DB-only mode - no external API calls will be made');
+      // Initialize mock data if needed
+      await initializeMockData();
+    }
+    
+  } catch (error) {
+    console.error('❌ Failed to start servers:', error.message);
+    process.exit(1);
+  }
+}
 
-// Start WebSocket server for real-time price updates
-const priceStreamServer = new PriceStreamServer(3001);
-priceStreamServer.start();
+startServers();

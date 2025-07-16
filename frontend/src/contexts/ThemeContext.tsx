@@ -20,10 +20,21 @@ export const useTheme = () => {
 
 interface ThemeProviderProps {
   children: ReactNode;
+  userTheme?: Theme;
+  onThemeChange?: (theme: Theme) => void;
 }
 
-export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
+export const ThemeProvider: React.FC<ThemeProviderProps> = ({ 
+  children, 
+  userTheme, 
+  onThemeChange 
+}) => {
   const [theme, setTheme] = useState<Theme>(() => {
+    // Priority: userTheme (from DB) > localStorage > default
+    if (userTheme) {
+      return userTheme;
+    }
+    
     if (typeof window !== 'undefined') {
       const savedTheme = localStorage.getItem('theme') as Theme;
       return savedTheme || 'light';
@@ -31,13 +42,25 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     return 'light';
   });
 
-  const toggleTheme = () => {
-    setTheme(prevTheme => {
-      const newTheme = prevTheme === 'light' ? 'dark' : 'light';
-      localStorage.setItem('theme', newTheme);
-      return newTheme;
-    });
+  const toggleTheme = async () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    
+    // Update localStorage
+    localStorage.setItem('theme', newTheme);
+    
+    // Update database if callback is provided
+    if (onThemeChange) {
+      onThemeChange(newTheme);
+    }
   };
+
+  // Update theme when userTheme prop changes
+  useEffect(() => {
+    if (userTheme && userTheme !== theme) {
+      setTheme(userTheme);
+    }
+  }, [userTheme]);
 
   useEffect(() => {
     if (theme === 'dark') {
