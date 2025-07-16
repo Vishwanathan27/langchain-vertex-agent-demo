@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Calendar, BarChart3, Bell, Settings, Search, User, Moon, Sun } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, BarChart3, Bell, Settings, Search, User, Moon, Sun, Filter } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import MetalCard from './MetalCard';
@@ -18,12 +18,18 @@ interface Metal {
   high: number;
   low: number;
   color: string;
+  price_gram_24k?: number;
+  price_gram_22k?: number;
+  price_gram_18k?: number;
+  per_ounce_price?: number;
 }
 
 const Dashboard: React.FC = () => {
   const [selectedMetal, setSelectedMetal] = useState<string>('gold');
   const [selectedTimeframe, setSelectedTimeframe] = useState<string>('1D');
   const [showCalendar, setShowCalendar] = useState(false);
+  const [priceDisplayMode, setPriceDisplayMode] = useState<'per_ounce' | 'gram_24k' | 'gram_22k' | 'gram_18k'>('per_ounce');
+  const [showFilters, setShowFilters] = useState(false);
   
   const { prices, loading, error } = useRealTimePrices();
   const { theme, toggleTheme, isDark } = useTheme();
@@ -41,7 +47,11 @@ const Dashboard: React.FC = () => {
         changePercent: prices.gold.changePercent,
         high: prices.gold.high,
         low: prices.gold.low,
-        color: '#FFD700'
+        color: '#FFD700',
+        price_gram_24k: prices.gold.price_gram_24k,
+        price_gram_22k: prices.gold.price_gram_22k,
+        price_gram_18k: prices.gold.price_gram_18k,
+        per_ounce_price: prices.gold.per_ounce_price
       });
     }
     
@@ -54,7 +64,11 @@ const Dashboard: React.FC = () => {
         changePercent: prices.silver.changePercent,
         high: prices.silver.high,
         low: prices.silver.low,
-        color: '#C0C0C0'
+        color: '#C0C0C0',
+        price_gram_24k: prices.silver.price_gram_24k,
+        price_gram_22k: prices.silver.price_gram_22k,
+        price_gram_18k: prices.silver.price_gram_18k,
+        per_ounce_price: prices.silver.per_ounce_price
       });
     }
     
@@ -67,7 +81,11 @@ const Dashboard: React.FC = () => {
         changePercent: prices.platinum.changePercent,
         high: prices.platinum.high,
         low: prices.platinum.low,
-        color: '#E5E4E2'
+        color: '#E5E4E2',
+        price_gram_24k: prices.platinum.price_gram_24k,
+        price_gram_22k: prices.platinum.price_gram_22k,
+        price_gram_18k: prices.platinum.price_gram_18k,
+        per_ounce_price: prices.platinum.per_ounce_price
       });
     }
     
@@ -80,7 +98,11 @@ const Dashboard: React.FC = () => {
         changePercent: prices.palladium.changePercent,
         high: prices.palladium.high,
         low: prices.palladium.low,
-        color: '#CED0DD'
+        color: '#CED0DD',
+        price_gram_24k: prices.palladium.price_gram_24k,
+        price_gram_22k: prices.palladium.price_gram_22k,
+        price_gram_18k: prices.palladium.price_gram_18k,
+        per_ounce_price: prices.palladium.per_ounce_price
       });
     }
   }
@@ -176,6 +198,18 @@ const Dashboard: React.FC = () => {
               }`}>
                 <Bell className="h-5 w-5" />
               </button>
+              <motion.button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`p-2 transition-colors duration-300 rounded-lg hover:scale-110 ${
+                  isDark 
+                    ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700' 
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                }`}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Filter className="h-5 w-5" />
+              </motion.button>
               <button className={`p-2 transition-colors duration-300 rounded-lg hover:scale-110 ${
                 isDark 
                   ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700' 
@@ -196,6 +230,66 @@ const Dashboard: React.FC = () => {
       </motion.header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Price Display Filters */}
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className={`rounded-xl shadow-lg p-6 mb-6 transition-all duration-300 ${
+              isDark 
+                ? 'bg-gray-800 shadow-gray-900/20' 
+                : 'bg-white shadow-gray-200/50'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-lg font-semibold transition-colors duration-300 ${
+                isDark ? 'text-white' : 'text-slate-900'
+              }`}>Price Display Options</h3>
+              <button
+                onClick={() => setShowFilters(false)}
+                className={`text-sm transition-colors duration-300 ${
+                  isDark ? 'text-gray-400 hover:text-gray-300' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Hide
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { value: 'per_ounce', label: 'Per Ounce', desc: 'Traditional trading unit' },
+                { value: 'gram_24k', label: '24K Gold/Gram', desc: 'Pure gold per gram' },
+                { value: 'gram_22k', label: '22K Gold/Gram', desc: 'Jewelry grade per gram' },
+                { value: 'gram_18k', label: '18K Gold/Gram', desc: 'Lower purity per gram' }
+              ].map(({ value, label, desc }) => (
+                <motion.button
+                  key={value}
+                  onClick={() => setPriceDisplayMode(value as any)}
+                  className={`p-3 rounded-lg border-2 transition-all duration-300 text-left ${
+                    priceDisplayMode === value
+                      ? isDark
+                        ? 'border-amber-500 bg-amber-900/20 text-amber-400'
+                        : 'border-amber-500 bg-amber-50 text-amber-700'
+                      : isDark
+                        ? 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
+                        : 'border-slate-300 bg-slate-50 text-slate-700 hover:border-slate-400'
+                  }`}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <div className="font-medium text-sm">{label}</div>
+                  <div className={`text-xs mt-1 ${
+                    priceDisplayMode === value
+                      ? isDark ? 'text-amber-300' : 'text-amber-600'
+                      : isDark ? 'text-gray-400' : 'text-slate-500'
+                  }`}>{desc}</div>
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+        
         {/* Metal Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {loading ? (
@@ -263,6 +357,7 @@ const Dashboard: React.FC = () => {
                   metal={metal}
                   isSelected={selectedMetal === metal.name.toLowerCase()}
                   onClick={() => setSelectedMetal(metal.name.toLowerCase())}
+                  priceDisplayMode={priceDisplayMode}
                 />
               </motion.div>
             ))

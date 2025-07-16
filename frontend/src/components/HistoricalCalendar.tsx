@@ -3,6 +3,7 @@ import Calendar from 'react-calendar';
 import { motion } from 'framer-motion';
 import { format, startOfDay, isToday, isSameDay } from 'date-fns';
 import { TrendingUp, TrendingDown, Calendar as CalendarIcon } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 import 'react-calendar/dist/Calendar.css';
 
 interface HistoricalCalendarProps {
@@ -22,6 +23,7 @@ const HistoricalCalendar: React.FC<HistoricalCalendarProps> = ({ selectedMetal, 
   const [historicalData, setHistoricalData] = useState<PriceData[]>([]);
   const [selectedDateData, setSelectedDateData] = useState<PriceData | null>(null);
   const [loading, setLoading] = useState(false);
+  const { isDark } = useTheme();
 
   // Generate sample historical data
   const generateHistoricalData = () => {
@@ -169,13 +171,19 @@ const HistoricalCalendar: React.FC<HistoricalCalendarProps> = ({ selectedMetal, 
       `}</style>
 
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-slate-900 capitalize">
+        <h4 className={`text-sm font-medium capitalize transition-colors duration-300 ${
+          isDark ? 'text-white' : 'text-slate-900'
+        }`}>
           {selectedMetal} Historical Prices
         </h4>
-        <CalendarIcon className="h-4 w-4 text-slate-400" />
+        <CalendarIcon className={`h-4 w-4 transition-colors duration-300 ${
+          isDark ? 'text-gray-400' : 'text-slate-400'
+        }`} />
       </div>
 
-      <div className="bg-slate-50 rounded-lg p-4">
+      <div className={`rounded-lg p-4 transition-colors duration-300 ${
+        isDark ? 'bg-gray-700' : 'bg-slate-50'
+      }`}>
         <Calendar
           onChange={handleDateChange}
           value={selectedDate}
@@ -190,10 +198,14 @@ const HistoricalCalendar: React.FC<HistoricalCalendarProps> = ({ selectedMetal, 
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white border border-slate-200 rounded-lg p-4"
+          className={`border rounded-lg p-4 transition-colors duration-300 ${
+            isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-slate-200'
+          }`}
         >
           <div className="flex items-center justify-between mb-3">
-            <h5 className="text-sm font-medium text-slate-900">
+            <h5 className={`text-sm font-medium transition-colors duration-300 ${
+              isDark ? 'text-white' : 'text-slate-900'
+            }`}>
               {format(selectedDate, 'MMMM dd, yyyy')}
             </h5>
             <div className={`flex items-center space-x-1 text-sm ${
@@ -212,8 +224,12 @@ const HistoricalCalendar: React.FC<HistoricalCalendarProps> = ({ selectedMetal, 
           
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-sm text-slate-500">Price:</span>
-              <span className="text-sm font-medium text-slate-900">
+              <span className={`text-sm transition-colors duration-300 ${
+                isDark ? 'text-gray-400' : 'text-slate-500'
+              }`}>Price:</span>
+              <span className={`text-sm font-medium transition-colors duration-300 ${
+                isDark ? 'text-white' : 'text-slate-900'
+              }`}>
                 ₹{selectedDateData.price.toLocaleString('en-IN', { 
                   minimumFractionDigits: 2, 
                   maximumFractionDigits: 2 

@@ -10,6 +10,10 @@ interface PriceData {
   high: number;
   low: number;
   timestamp: Date;
+  price_gram_24k?: number;
+  price_gram_22k?: number;
+  price_gram_18k?: number;
+  per_ounce_price?: number;
 }
 
 interface RealTimePricesData {
@@ -56,7 +60,11 @@ export const useRealTimePrices = () => {
           changePercent: result.data.gold.changePercent || 0,
           high: result.data.gold.high || result.data.gold.price,
           low: result.data.gold.low || result.data.gold.price,
-          timestamp: new Date()
+          timestamp: new Date(),
+          price_gram_24k: result.data.gold.price_gram_24k,
+          price_gram_22k: result.data.gold.price_gram_22k,
+          price_gram_18k: result.data.gold.price_gram_18k,
+          per_ounce_price: result.data.gold.price
         };
       }
       
@@ -67,7 +75,11 @@ export const useRealTimePrices = () => {
           changePercent: result.data.silver.changePercent || 0,
           high: result.data.silver.high || result.data.silver.price,
           low: result.data.silver.low || result.data.silver.price,
-          timestamp: new Date()
+          timestamp: new Date(),
+          price_gram_24k: result.data.silver.price_gram_24k,
+          price_gram_22k: result.data.silver.price_gram_22k,
+          price_gram_18k: result.data.silver.price_gram_18k,
+          per_ounce_price: result.data.silver.price
         };
       }
       
@@ -78,7 +90,11 @@ export const useRealTimePrices = () => {
           changePercent: result.data.platinum.changePercent || 0,
           high: result.data.platinum.high || result.data.platinum.price,
           low: result.data.platinum.low || result.data.platinum.price,
-          timestamp: new Date()
+          timestamp: new Date(),
+          price_gram_24k: result.data.platinum.price_gram_24k,
+          price_gram_22k: result.data.platinum.price_gram_22k,
+          price_gram_18k: result.data.platinum.price_gram_18k,
+          per_ounce_price: result.data.platinum.price
         };
       }
       
@@ -89,7 +105,11 @@ export const useRealTimePrices = () => {
           changePercent: result.data.palladium.changePercent || 0,
           high: result.data.palladium.high || result.data.palladium.price,
           low: result.data.palladium.low || result.data.palladium.price,
-          timestamp: new Date()
+          timestamp: new Date(),
+          price_gram_24k: result.data.palladium.price_gram_24k,
+          price_gram_22k: result.data.palladium.price_gram_22k,
+          price_gram_18k: result.data.palladium.price_gram_18k,
+          per_ounce_price: result.data.palladium.price
         };
       }
       

@@ -13,15 +13,20 @@ interface Metal {
   high: number;
   low: number;
   color: string;
+  price_gram_24k?: number;
+  price_gram_22k?: number;
+  price_gram_18k?: number;
+  per_ounce_price?: number;
 }
 
 interface MetalCardProps {
   metal: Metal;
   isSelected: boolean;
   onClick: () => void;
+  priceDisplayMode?: 'per_ounce' | 'gram_24k' | 'gram_22k' | 'gram_18k';
 }
 
-const MetalCard: React.FC<MetalCardProps> = ({ metal, isSelected, onClick }) => {
+const MetalCard: React.FC<MetalCardProps> = ({ metal, isSelected, onClick, priceDisplayMode = 'per_ounce' }) => {
   const { isDark } = useTheme();
   const isPositive = metal.change > 0;
   const isNegative = metal.change < 0;
@@ -78,7 +83,12 @@ const MetalCard: React.FC<MetalCardProps> = ({ metal, isSelected, onClick }) => 
           }`}>Price</div>
           <div className={`text-sm font-medium transition-colors duration-300 ${
             isDark ? 'text-gray-300' : 'text-slate-700'
-          }`}>₹/oz</div>
+          }`}>
+            {priceDisplayMode === 'per_ounce' ? '₹/oz' : 
+             priceDisplayMode === 'gram_24k' ? '₹/g (24K)' :
+             priceDisplayMode === 'gram_22k' ? '₹/g (22K)' :
+             priceDisplayMode === 'gram_18k' ? '₹/g (18K)' : '₹/oz'}
+          </div>
         </div>
       </div>
       
@@ -91,7 +101,21 @@ const MetalCard: React.FC<MetalCardProps> = ({ metal, isSelected, onClick }) => 
           animate={{ scale: 1 }}
           transition={{ duration: 0.2 }}
         >
-          ₹{metal.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          ₹{(() => {
+            const getDisplayPrice = () => {
+              switch (priceDisplayMode) {
+                case 'gram_24k':
+                  return metal.price_gram_24k || metal.price;
+                case 'gram_22k':
+                  return metal.price_gram_22k || metal.price;
+                case 'gram_18k':
+                  return metal.price_gram_18k || metal.price;
+                default:
+                  return metal.price;
+              }
+            };
+            return getDisplayPrice().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          })()}
         </motion.div>
         
         <div className={clsx('flex items-center space-x-2 px-3 py-1 rounded-lg', bgColor)}>

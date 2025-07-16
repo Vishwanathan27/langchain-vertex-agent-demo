@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Brain, TrendingUp, TrendingDown, AlertCircle, Lightbulb, Send } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface AIInsightsProps {
   selectedMetal: string;
@@ -22,6 +23,7 @@ const AIInsights: React.FC<AIInsightsProps> = ({ selectedMetal, currentPrice, pr
   const [loading, setLoading] = useState(false);
   const [question, setQuestion] = useState('');
   const [chatHistory, setChatHistory] = useState<Array<{sender: 'user' | 'ai', message: string, timestamp: Date}>>([]);
+  const { isDark } = useTheme();
 
   // Generate AI insights based on current market data
   const generateInsights = () => {
@@ -166,7 +168,9 @@ const AIInsights: React.FC<AIInsightsProps> = ({ selectedMetal, currentPrice, pr
     <div className="space-y-6">
       {/* AI Insights */}
       <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center space-x-2">
+        <h3 className={`text-lg font-semibold mb-4 flex items-center space-x-2 transition-colors duration-300 ${
+          isDark ? 'text-white' : 'text-slate-900'
+        }`}>
           <Brain className="h-5 w-5 text-blue-600" />
           <span>AI Market Insights</span>
         </h3>
@@ -190,13 +194,17 @@ const AIInsights: React.FC<AIInsightsProps> = ({ selectedMetal, currentPrice, pr
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-white border border-slate-200 rounded-lg p-4"
+                  className={`border rounded-lg p-4 transition-colors duration-300 ${
+                    isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-slate-200'
+                  }`}
                 >
                   <div className="flex items-start space-x-3">
                     <Icon className={`h-5 w-5 mt-0.5 flex-shrink-0 ${getInsightColor(insight.type)}`} />
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
-                        <h4 className="text-sm font-medium text-slate-900">{insight.title}</h4>
+                        <h4 className={`text-sm font-medium transition-colors duration-300 ${
+                          isDark ? 'text-white' : 'text-slate-900'
+                        }`}>{insight.title}</h4>
                         <span className="text-xs text-slate-500">{insight.confidence}% confidence</span>
                       </div>
                       <p className="text-sm text-slate-600">{insight.message}</p>
@@ -222,9 +230,13 @@ const AIInsights: React.FC<AIInsightsProps> = ({ selectedMetal, currentPrice, pr
 
       {/* AI Chat */}
       <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Ask AI Assistant</h3>
+        <h3 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
+          isDark ? 'text-white' : 'text-slate-900'
+        }`}>Ask AI Assistant</h3>
         
-        <div className="bg-white border border-slate-200 rounded-lg">
+        <div className={`border rounded-lg transition-colors duration-300 ${
+          isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-slate-200'
+        }`}>
           {/* Chat History */}
           <div className="max-h-64 overflow-y-auto p-4 space-y-3">
             {chatHistory.length === 0 ? (
