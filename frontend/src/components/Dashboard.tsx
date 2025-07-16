@@ -7,7 +7,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import MetalCard from './MetalCard';
 import PriceChart from './PriceChart';
 import HistoricalCalendar from './HistoricalCalendar';
-import AIInsights from './AIInsights';
 import UserProfile from './UserProfile';
 import { useRealTimePrices } from '../hooks/useRealTimePrices';
 

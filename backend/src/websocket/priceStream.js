@@ -1,6 +1,6 @@
 // WebSocket server for real-time precious metals price streaming
 const WebSocket = require('ws');
-const { getGoldApiLivePrice } = require('../services/goldapiPriceService');
+const metalpricerService = require('../services/apiAbstraction');
 const { findAvailablePort, killPortProcess } = require('../utils/serverUtils');
 
 const METALS = {
@@ -92,34 +92,36 @@ class PriceStreamServer {
   }
 
   async fetchAllPrices() {
-    const prices = {};
-    
-    const pricePromises = Object.keys(METALS).map(async (metal) => {
-      try {
-        const priceData = await getGoldApiLivePrice();
-        return { metal, data: priceData };
-      } catch (error) {
-        console.error(`Error fetching ${metal} price:`, error);
-        return { metal, data: { error: `Failed to fetch ${metal} price` } };
+    try {
+      const response = await metalpricerService.getAllLivePrices('INR');
+      
+      if (response.success && response.data) {
+        const prices = {};
+        
+        // Transform the response data to match expected format
+        Object.keys(response.data).forEach(metalName => {
+          const metalData = response.data[metalName];
+          if (metalData && metalData.price) {
+            prices[metalName] = {
+              price: metalData.price,
+              change: metalData.change || 0,
+              changePercent: metalData.changePercent || 0,
+              high: metalData.high || metalData.price,
+              low: metalData.low || metalData.price,
+              timestamp: new Date().toISOString()
+            };
+          }
+        });
+        
+        return prices;
+      } else {
+        console.error('Failed to fetch prices from API abstraction service:', response.error);
+        return {};
       }
-    });
-
-    const results = await Promise.all(pricePromises);
-    
-    results.forEach(({ metal, data }) => {
-      if (!data.error) {
-        prices[metal] = {
-          price: data.price_ounce || data.price,
-          change: data.ch || 0,
-          changePercent: data.chp || 0,
-          high: data.high || data.price,
-          low: data.low || data.price,
-          timestamp: new Date().toISOString()
-        };
-      }
-    });
-
-    return prices;
+    } catch (error) {
+      console.error('Error fetching all prices:', error);
+      return {};
+    }
   }
 
   startPriceUpdates() {

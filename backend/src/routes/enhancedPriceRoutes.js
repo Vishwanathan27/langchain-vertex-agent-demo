@@ -3,6 +3,7 @@ const express = require('express');
 const metalpricerService = require('../services/apiAbstraction');
 const { swarnaAIAgent } = require('../ai/aiAgent');
 const { authenticate, authorize, adminOnly, optionalAuth } = require('../middleware/auth');
+const dataSyncService = require('../services/dataSync');
 const router = express.Router();
 
 // Metal mappings for backwards compatibility
@@ -963,6 +964,141 @@ router.post('/admin/cleanup', adminOnly, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to clean up data'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/sync/status:
+ *   get:
+ *     summary: Get data sync service status
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Data sync service status
+ */
+router.get('/admin/sync/status', adminOnly, (req, res) => {
+  try {
+    const stats = dataSyncService.getStats();
+    res.json({
+      success: true,
+      data: stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error getting sync status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get sync status'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/sync/trigger:
+ *   post:
+ *     summary: Manually trigger data sync
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Data sync triggered successfully
+ */
+router.post('/admin/sync/trigger', adminOnly, async (req, res) => {
+  try {
+    await dataSyncService.triggerManualSync();
+    res.json({
+      success: true,
+      message: 'Data sync triggered successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error triggering sync:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to trigger sync'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/sync/interval:
+ *   post:
+ *     summary: Update data sync interval
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               interval:
+ *                 type: string
+ *                 description: Cron expression for sync interval
+ *             required:
+ *               - interval
+ *     responses:
+ *       200:
+ *         description: Sync interval updated successfully
+ */
+router.post('/admin/sync/interval', adminOnly, (req, res) => {
+  try {
+    const { interval } = req.body;
+    
+    if (!interval) {
+      return res.status(400).json({
+        success: false,
+        error: 'Interval is required'
+      });
+    }
+    
+    dataSyncService.updateSyncInterval(interval);
+    
+    res.json({
+      success: true,
+      message: 'Sync interval updated successfully',
+      interval,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error updating sync interval:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update sync interval'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/sync/health:
+ *   get:
+ *     summary: Get data sync service health
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Data sync service health check
+ */
+router.get('/admin/sync/health', adminOnly, async (req, res) => {
+  try {
+    const health = await dataSyncService.healthCheck();
+    res.json({
+      success: true,
+      data: health,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error checking sync health:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check sync health'
     });
   }
 });

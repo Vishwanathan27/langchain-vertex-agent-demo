@@ -44,6 +44,10 @@ const PRIMARY_PROVIDER = process.env.PRIMARY_API_PROVIDER || 'metalpriceapi';
 const FALLBACK_PROVIDER = PRIMARY_PROVIDER === 'goldapi' ? 'metalpriceapi' : 'goldapi';
 const DB_ONLY_MODE = PRIMARY_PROVIDER === 'db';
 
+// Debug logging
+console.log('🏗️  Feature Flag - API Provider:', PRIMARY_PROVIDER);
+console.log('🏗️  DB-only mode:', DB_ONLY_MODE);
+
 /**
  * Standard internal data structure for metal prices
  */
@@ -61,6 +65,10 @@ class GoldAPIMapper {
   static async fetchLivePrice(metal, currency = 'INR') {
     const config = API_CONFIGS.goldapi;
     const url = `${config.baseUrl}/${metal}/${currency}`;
+    
+    // Add debug logging to track API calls
+    console.log(`🌐 GoldAPI: Making API call to ${url}`);
+    console.log(`🌐 DB_ONLY_MODE status: ${DB_ONLY_MODE}`);
     
     try {
       const response = await axios.get(url, {
@@ -100,6 +108,10 @@ class MetalPriceAPIMapper {
   static async fetchLivePrice(metal, currency = 'INR') {
     const config = API_CONFIGS.metalpriceapi;
     const url = `${config.baseUrl}/latest`;
+    
+    // Add debug logging to track API calls
+    console.log(`🌐 MetalPriceAPI: Making API call to ${url}`);
+    console.log(`🌐 DB_ONLY_MODE status: ${DB_ONLY_MODE}`);
     
     try {
       const response = await axios.get(url, {

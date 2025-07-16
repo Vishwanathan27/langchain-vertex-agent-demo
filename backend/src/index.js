@@ -7,7 +7,6 @@ const rateLimit = require('express-rate-limit');
 const { VertexAI } = require('@langchain/google-vertexai');
 const { initializeAgentExecutorWithOptions } = require('langchain/agents');
 const { DynamicTool } = require('langchain/tools');
-const priceRoutes = require('./routes/priceRoutes');
 const enhancedPriceRoutes = require('./routes/enhancedPriceRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -18,6 +17,7 @@ const PriceStreamServer = require('./websocket/priceStream');
 const db = require('./db/connection');
 const { startServer, setupGracefulShutdown, configureCORS } = require('./utils/serverUtils');
 const { initializeMockData } = require('./utils/mockDataGenerator');
+const dataSyncService = require('./services/dataSync');
 
 dotenv.config();
 
@@ -93,7 +93,6 @@ app.post('/api/converse', async (req, res) => {
   }
 });
 
-app.use('/api/v1/prices', priceRoutes);
 app.use('/api/metals', enhancedPriceRoutes);
 app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/market', aiRoutes);
@@ -113,7 +112,7 @@ async function startServers() {
     const wsServer = await priceStreamServer.start();
     
     // Setup graceful shutdown
-    setupGracefulShutdown(httpServer, wsServer);
+    setupGracefulShutdown(httpServer, wsServer, dataSyncService);
     
     // Display feature flag status
     console.log(`🏗️  Feature Flag - API Provider: ${process.env.PRIMARY_API_PROVIDER || 'metalpriceapi'}`);
@@ -121,6 +120,10 @@ async function startServers() {
       console.log('🏦 Running in DB-only mode - no external API calls will be made');
       // Initialize mock data if needed
       await initializeMockData();
+      
+      // Start data sync service for scheduled updates
+      dataSyncService.start();
+      console.log('📅 Data sync service started');
     }
     
   } catch (error) {

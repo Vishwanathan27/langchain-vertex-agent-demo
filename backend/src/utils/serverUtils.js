@@ -107,9 +107,15 @@ async function startServer(app, preferredPort, serverName = 'Server') {
 /**
  * Graceful shutdown handler
  */
-function setupGracefulShutdown(server, wsServer = null) {
+function setupGracefulShutdown(server, wsServer = null, dataSyncService = null) {
   const shutdown = (signal) => {
     console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
+    
+    // Stop data sync service first
+    if (dataSyncService && dataSyncService.stop) {
+      dataSyncService.stop();
+      console.log('✅ Data sync service stopped');
+    }
     
     // Close HTTP server
     server.close(() => {
