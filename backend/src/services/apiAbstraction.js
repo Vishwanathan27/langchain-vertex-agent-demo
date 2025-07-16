@@ -33,7 +33,7 @@ const API_CONFIGS = {
   },
   metalpriceapi: {
     baseUrl: 'https://api.metalpriceapi.com/v1',
-    apiKey: process.env.METALPRICEAPI_KEY || '6f36b6777c975becf41d8e19ded22645',
+    apiKey: process.env.METALPRICEAPI_KEY || '',
     timeout: parseInt(process.env.API_TIMEOUT) || 10000,
     headers: {}
   }
