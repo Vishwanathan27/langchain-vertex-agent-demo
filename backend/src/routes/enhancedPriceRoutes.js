@@ -1,16 +1,18 @@
 // Enhanced API routes for real-time precious metals data
 const express = require('express');
-const { getGoldApiLivePrice } = require('../services/goldapiPriceService');
+const { 
+  getAllMetalPrices, 
+  getMetalPrice, 
+  getHistoricalPrice, 
+  getPriceRange,
+  getAPIStats,
+  METALS,
+  CURRENCIES
+} = require('../services/goldapiPriceService');
 const { swarnaAIAgent } = require('../ai/aiAgent');
 const router = express.Router();
 
-// Supported metals with their API symbols
-const METALS = {
-  gold: 'XAU',
-  silver: 'XAG',
-  platinum: 'XPT',
-  palladium: 'XPD'
-};
+// Use imported METALS from service
 
 /**
  * @swagger
@@ -42,7 +44,8 @@ router.get('/live', async (req, res) => {
     // Fetch prices for all metals concurrently
     const pricePromises = Object.keys(METALS).map(async (metal) => {
       try {
-        const priceData = await getGoldApiLivePrice();
+        const metalSymbol = METALS[metal];
+        const priceData = await getMetalPrice(metalSymbol, 'INR');
         return { metal, data: priceData };
       } catch (error) {
         console.error(`Error fetching ${metal} price:`, error);
@@ -102,7 +105,8 @@ router.get('/:metal/live', async (req, res) => {
       });
     }
 
-    const priceData = await getGoldApiLivePrice();
+    const metalSymbol = METALS[metal];
+    const priceData = await getMetalPrice(metalSymbol, 'INR');
     
     res.json({
       success: true,
@@ -166,34 +170,21 @@ router.get('/:metal/historical/:date', async (req, res) => {
     // Format date for GoldAPI (remove hyphens)
     const formattedDate = date.replace(/-/g, '');
     
-    // Fetch historical data from GoldAPI
-    const response = await fetch(`${process.env.GOLD_API_BASE}/${METALS[metal]}/INR/${formattedDate}`, {
-      method: 'GET',
-      headers: {
-        'x-access-token': process.env.GOLD_API_KEY,
-        'Content-Type': 'application/json',
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`GoldAPI error: ${response.status}`);
+    // Fetch historical data using our service
+    const data = await getHistoricalPrice(METALS[metal], 'INR', formattedDate);
+    
+    if (data.error) {
+      return res.status(404).json({
+        success: false,
+        error: data.error
+      });
     }
 
-    const data = await response.json();
-    
     res.json({
       success: true,
       date,
       metal,
-      data: {
-        price: data.price,
-        high: data.high_price,
-        low: data.low_price,
-        open: data.open_price,
-        close: data.prev_close_price,
-        change: data.ch,
-        changePercent: data.chp
-      }
+      data
     });
   } catch (error) {
     console.error(`Error fetching historical data:`, error);
@@ -239,10 +230,18 @@ router.get('/:metal/chart/:period', async (req, res) => {
       });
     }
 
-    // Generate sample chart data (in a real implementation, this would fetch from a time-series database)
-    const generateChartData = (period) => {
+    // Generate chart data with current market price as baseline
+    const generateChartData = async (period) => {
       const data = [];
-      const basePrice = metal === 'gold' ? 5400 : metal === 'silver' ? 82 : metal === 'platinum' ? 2890 : 1890;
+      
+      // Get current market price for baseline
+      let basePrice;
+      try {
+        const currentPrice = await getMetalPrice(METALS[metal], 'INR');
+        basePrice = currentPrice.price || (metal === 'gold' ? 5400 : metal === 'silver' ? 82 : metal === 'platinum' ? 2890 : 1890);
+      } catch (error) {
+        basePrice = metal === 'gold' ? 5400 : metal === 'silver' ? 82 : metal === 'platinum' ? 2890 : 1890;
+      }
       
       let points, timeUnit;
       switch (period) {
@@ -279,7 +278,7 @@ router.get('/:metal/chart/:period', async (req, res) => {
       return data;
     };
 
-    const chartData = generateChartData(period);
+    const chartData = await generateChartData(period);
     
     res.json({
       success: true,

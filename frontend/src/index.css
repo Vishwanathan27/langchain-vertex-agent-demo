@@ -1,3 +1,69 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  * {
+    transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+@layer utilities {
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .text-gradient {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .backdrop-blur-glass {
+    backdrop-filter: blur(16px) saturate(180%);
+    background-color: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.125);
+  }
+  
+  .dark .backdrop-blur-glass {
+    background-color: rgba(31, 41, 55, 0.75);
+    border: 1px solid rgba(55, 65, 81, 0.25);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}

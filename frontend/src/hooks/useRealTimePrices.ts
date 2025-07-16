@@ -25,107 +25,89 @@ export const useRealTimePrices = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const generateMockPriceData = useCallback((): RealTimePricesData => {
-    const basePrice = (metal: string) => {
-      switch (metal) {
-        case 'gold': return 5400;
-        case 'silver': return 82;
-        case 'platinum': return 2890;
-        case 'palladium': return 1890;
-        default: return 1000;
-      }
-    };
-
-    const createPriceData = (metal: string): PriceData => {
-      const base = basePrice(metal);
-      const variation = (Math.random() - 0.5) * (base * 0.03); // 3% variation
-      const price = base + variation;
-      const previousPrice = base + (Math.random() - 0.5) * (base * 0.02);
-      const change = price - previousPrice;
-      const changePercent = (change / previousPrice) * 100;
-      
-      return {
-        price: Math.round(price * 100) / 100,
-        change: Math.round(change * 100) / 100,
-        changePercent: Math.round(changePercent * 100) / 100,
-        high: Math.round((price + Math.random() * base * 0.02) * 100) / 100,
-        low: Math.round((price - Math.random() * base * 0.02) * 100) / 100,
-        timestamp: new Date()
-      };
-    };
-
-    return {
-      gold: createPriceData('gold'),
-      silver: createPriceData('silver'),
-      platinum: createPriceData('platinum'),
-      palladium: createPriceData('palladium')
-    };
-  }, []);
 
   const fetchPrices = useCallback(async () => {
     try {
       setError(null);
       
-      // Try to fetch from real API first
-      try {
-        const response = await fetch(`${API_BASE_URL}/live`);
-        const result = await response.json();
-        
-        if (result.success && result.data) {
-          const formattedData: RealTimePricesData = {
-            gold: {
-              price: result.data.gold?.price_ounce || result.data.gold?.price || 0,
-              change: result.data.gold?.ch || 0,
-              changePercent: result.data.gold?.chp || 0,
-              high: result.data.gold?.high || result.data.gold?.price || 0,
-              low: result.data.gold?.low || result.data.gold?.price || 0,
-              timestamp: new Date()
-            },
-            silver: {
-              price: result.data.silver?.price_ounce || result.data.silver?.price || 0,
-              change: result.data.silver?.ch || 0,
-              changePercent: result.data.silver?.chp || 0,
-              high: result.data.silver?.high || result.data.silver?.price || 0,
-              low: result.data.silver?.low || result.data.silver?.price || 0,
-              timestamp: new Date()
-            },
-            platinum: {
-              price: result.data.platinum?.price_ounce || result.data.platinum?.price || 0,
-              change: result.data.platinum?.ch || 0,
-              changePercent: result.data.platinum?.chp || 0,
-              high: result.data.platinum?.high || result.data.platinum?.price || 0,
-              low: result.data.platinum?.low || result.data.platinum?.price || 0,
-              timestamp: new Date()
-            },
-            palladium: {
-              price: result.data.palladium?.price_ounce || result.data.palladium?.price || 0,
-              change: result.data.palladium?.ch || 0,
-              changePercent: result.data.palladium?.chp || 0,
-              high: result.data.palladium?.high || result.data.palladium?.price || 0,
-              low: result.data.palladium?.low || result.data.palladium?.price || 0,
-              timestamp: new Date()
-            }
-          };
-          
-          setPrices(formattedData);
-          setLastUpdated(new Date());
-          setLoading(false);
-          return;
-        }
-      } catch (apiError) {
-        console.warn('API fetch failed, using mock data:', apiError);
+      const response = await fetch(`${API_BASE_URL}/live`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      // Fallback to mock data
-      const mockData = generateMockPriceData();
-      setPrices(mockData);
-      setLastUpdated(new Date());
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'API request failed');
+      }
+      
+      if (!result.data) {
+        throw new Error('No data received from API');
+      }
+      
+      // Only process metals that have valid data (no errors)
+      const formattedData: Partial<RealTimePricesData> = {};
+      
+      if (result.data.gold && !result.data.gold.error && result.data.gold.price) {
+        formattedData.gold = {
+          price: result.data.gold.price,
+          change: result.data.gold.change || 0,
+          changePercent: result.data.gold.changePercent || 0,
+          high: result.data.gold.high || result.data.gold.price,
+          low: result.data.gold.low || result.data.gold.price,
+          timestamp: new Date()
+        };
+      }
+      
+      if (result.data.silver && !result.data.silver.error && result.data.silver.price) {
+        formattedData.silver = {
+          price: result.data.silver.price,
+          change: result.data.silver.change || 0,
+          changePercent: result.data.silver.changePercent || 0,
+          high: result.data.silver.high || result.data.silver.price,
+          low: result.data.silver.low || result.data.silver.price,
+          timestamp: new Date()
+        };
+      }
+      
+      if (result.data.platinum && !result.data.platinum.error && result.data.platinum.price) {
+        formattedData.platinum = {
+          price: result.data.platinum.price,
+          change: result.data.platinum.change || 0,
+          changePercent: result.data.platinum.changePercent || 0,
+          high: result.data.platinum.high || result.data.platinum.price,
+          low: result.data.platinum.low || result.data.platinum.price,
+          timestamp: new Date()
+        };
+      }
+      
+      if (result.data.palladium && !result.data.palladium.error && result.data.palladium.price) {
+        formattedData.palladium = {
+          price: result.data.palladium.price,
+          change: result.data.palladium.change || 0,
+          changePercent: result.data.palladium.changePercent || 0,
+          high: result.data.palladium.high || result.data.palladium.price,
+          low: result.data.palladium.low || result.data.palladium.price,
+          timestamp: new Date()
+        };
+      }
+      
+      // Only set prices if we have at least some valid data
+      if (Object.keys(formattedData).length > 0) {
+        setPrices(formattedData as RealTimePricesData);
+        setLastUpdated(new Date());
+      } else {
+        throw new Error('No valid price data available for any metals');
+      }
+      
       setLoading(false);
     } catch (err) {
-      setError('Failed to fetch price data');
+      console.error('Failed to fetch price data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch price data');
       setLoading(false);
     }
-  }, [generateMockPriceData]);
+  }, []);
 
   useEffect(() => {
     // Initial fetch
