@@ -4,6 +4,8 @@ const metalpricerService = require('../services/apiAbstraction');
 const { swarnaAIAgent } = require('../ai/aiAgent');
 const { authenticate, authorize, adminOnly, optionalAuth } = require('../middleware/auth');
 const dataSyncService = require('../services/dataSync');
+const bulkDataSyncService = require('../services/bulkDataSync');
+const aiInsightsService = require('../services/aiInsightsService');
 const router = express.Router();
 
 // Metal mappings for backwards compatibility
@@ -305,9 +307,115 @@ router.get('/:metal/chart/:period', async (req, res) => {
 
 /**
  * @swagger
+ * /api/ai/assistant:
+ *   get:
+ *     summary: Get AI assistant insights for dashboard card
+ *     responses:
+ *       200:
+ *         description: AI-generated insights for the assistant card
+ */
+router.get('/ai/assistant', async (req, res) => {
+  try {
+    const insights = await aiInsightsService.generateAssistantInsights();
+    
+    res.json({
+      success: true,
+      data: insights,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating AI assistant insights:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate AI insights'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/ai/market-insights:
+ *   get:
+ *     summary: Get AI-generated market insights for dashboard
+ *     responses:
+ *       200:
+ *         description: AI-generated market insights and trends
+ */
+router.get('/ai/market-insights', async (req, res) => {
+  try {
+    const insights = await aiInsightsService.generateMarketInsights();
+    
+    res.json({
+      success: true,
+      data: insights,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating market insights:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate market insights'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/ai/chat:
+ *   post:
+ *     summary: Chat with AI assistant
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               query:
+ *                 type: string
+ *                 description: User's question
+ *               context:
+ *                 type: object
+ *                 description: Additional context
+ *             required:
+ *               - query
+ *     responses:
+ *       200:
+ *         description: AI response to user query
+ */
+router.post('/ai/chat', async (req, res) => {
+  try {
+    const { query, context = {} } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        error: 'Query is required'
+      });
+    }
+
+    const response = await aiInsightsService.generateAIResponse(query, context);
+    
+    res.json({
+      success: true,
+      query,
+      response,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating AI response:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate AI response'
+    });
+  }
+});
+
+/**
+ * @swagger
  * /api/ai/insights:
  *   post:
- *     summary: Get AI-generated market insights
+ *     summary: Get AI-generated market insights (legacy endpoint)
  *     requestBody:
  *       required: true
  *       content:
@@ -1099,6 +1207,151 @@ router.get('/admin/sync/health', adminOnly, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to check sync health'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/bulk-sync/trigger:
+ *   post:
+ *     summary: Manually trigger bulk data sync (admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bulk sync triggered successfully
+ */
+router.post('/admin/bulk-sync/trigger', adminOnly, async (req, res) => {
+  try {
+    // Run bulk sync in background
+    bulkDataSyncService.performBulkSync().catch(error => {
+      console.error('Background bulk sync failed:', error);
+    });
+    
+    res.json({
+      success: true,
+      message: 'Bulk data sync initiated successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error triggering bulk sync:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to trigger bulk sync'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/bulk-sync/status:
+ *   get:
+ *     summary: Get bulk sync service status
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bulk sync service status
+ */
+router.get('/admin/bulk-sync/status', adminOnly, (req, res) => {
+  try {
+    const status = bulkDataSyncService.getStatus();
+    res.json({
+      success: true,
+      data: status,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error getting bulk sync status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get bulk sync status'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/metals/historical-chart/{metal}:
+ *   get:
+ *     summary: Get historical chart data for a specific metal from database
+ *     parameters:
+ *       - in: path
+ *         name: metal
+ *         schema:
+ *           type: string
+ *           enum: [gold, silver, platinum, palladium]
+ *         required: true
+ *         description: The metal to get chart data for
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: number
+ *           default: 365
+ *         description: Number of days to look back
+ *     responses:
+ *       200:
+ *         description: Historical chart data from database
+ */
+router.get('/historical-chart/:metal', async (req, res) => {
+  try {
+    const { metal } = req.params;
+    const { days = 365 } = req.query;
+    
+    if (!METALS[metal]) {
+      return res.status(400).json({
+        success: false,
+        error: `Unsupported metal: ${metal}`
+      });
+    }
+
+    const chartData = await bulkDataSyncService.getHistoricalDataForCharts(
+      METALS[metal], 
+      'INR', 
+      parseInt(days)
+    );
+    
+    res.json({
+      success: true,
+      metal,
+      days: parseInt(days),
+      data: chartData,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching historical chart data:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch historical chart data'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/ai/health:
+ *   get:
+ *     summary: Check AI service health
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: AI service health status
+ */
+router.get('/admin/ai/health', adminOnly, async (req, res) => {
+  try {
+    const health = await aiInsightsService.healthCheck();
+    res.json({
+      success: true,
+      data: health,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error checking AI health:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check AI health'
     });
   }
 });

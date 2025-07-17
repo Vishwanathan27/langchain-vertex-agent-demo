@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .loading { color: #007bff; }
+        .error { color: #dc3545; }
+        .success { color: #28a745; }
+        .response { background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        input[type="text"] { width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI System Test</h1>
+        
+        <div class="section">
+            <h2>1. AI Assistant Insights</h2>
+            <button onclick="testAssistant()">Test AI Assistant</button>
+            <div id="assistant-result"></div>
+        </div>
+        
+        <div class="section">
+            <h2>2. Market Insights</h2>
+            <button onclick="testMarketInsights()">Test Market Insights</button>
+            <div id="market-result"></div>
+        </div>
+        
+        <div class="section">
+            <h2>3. AI Chat</h2>
+            <input type="text" id="chat-input" placeholder="Ask a question..." value="What is the current gold trend?">
+            <button onclick="testChat()">Test Chat</button>
+            <div id="chat-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            try {
+                const options = {
+                    method,
+                    headers: { 'Content-Type': 'application/json' }
+                };
+                
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+                
+                console.log(`Making ${method} request to ${API_BASE}${endpoint}`);
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                console.log('Response:', result);
+                return result;
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+        
+        async function testAssistant() {
+            const resultDiv = document.getElementById('assistant-result');
+            resultDiv.innerHTML = '<div class="loading">Loading AI insights...</div>';
+            
+            try {
+                const result = await apiCall('/api/metals/ai/assistant');
+                
+                if (result.success && result.data && result.data.insights) {
+                    const insights = result.data.insights.map(insight => 
+                        `<p class="response">${insight}</p>`
+                    ).join('');
+                    resultDiv.innerHTML = `<div class="success">Success!</div>${insights}`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Unexpected response structure: ${JSON.stringify(result)}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testMarketInsights() {
+            const resultDiv = document.getElementById('market-result');
+            resultDiv.innerHTML = '<div class="loading">Loading market insights...</div>';
+            
+            try {
+                const result = await apiCall('/api/metals/ai/market-insights');
+                
+                if (result.success && result.data && result.data.insights) {
+                    const insights = result.data.insights.map(insight => 
+                        `<div class="response"><strong>${insight.title}</strong>: ${insight.description}</div>`
+                    ).join('');
+                    const recommendation = result.data.aiRecommendation ? 
+                        `<div class="response"><strong>AI Recommendation:</strong> ${result.data.aiRecommendation}</div>` : '';
+                    
+                    resultDiv.innerHTML = `<div class="success">Success!</div>${insights}${recommendation}`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Unexpected response structure: ${JSON.stringify(result)}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testChat() {
+            const resultDiv = document.getElementById('chat-result');
+            const input = document.getElementById('chat-input');
+            const query = input.value.trim();
+            
+            if (!query) {
+                resultDiv.innerHTML = '<div class="error">Please enter a question</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="loading">AI is thinking...</div>';
+            
+            try {
+                const result = await apiCall('/api/metals/ai/chat', 'POST', {
+                    query: query,
+                    context: { selectedMetal: 'gold' }
+                });
+                
+                if (result.success && result.response) {
+                    resultDiv.innerHTML = `<div class="success">Success!</div><div class="response">${result.response}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Unexpected response structure: ${JSON.stringify(result)}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -9,6 +9,7 @@ import PriceChart from './PriceChart';
 import HistoricalCalendar from './HistoricalCalendar';
 import UserProfile from './UserProfile';
 import { useRealTimePrices } from '../hooks/useRealTimePrices';
+import { useAI } from '../hooks/useAI';
 
 interface Metal {
   symbol: string;
@@ -31,9 +32,24 @@ const Dashboard: React.FC = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [priceDisplayMode, setPriceDisplayMode] = useState<'per_ounce' | 'gram_24k' | 'gram_22k' | 'gram_18k'>('per_ounce');
   const [showFilters, setShowFilters] = useState(false);
+  const [aiQuery, setAiQuery] = useState<string>('');
+  const [aiResponse, setAiResponse] = useState<string>('');
   
   const { prices, loading, error } = useRealTimePrices();
   const { theme, toggleTheme, isDark } = useTheme();
+  
+  // Use the centralized AI hook
+  const {
+    aiInsights,
+    aiInsightsLoading,
+    aiInsightsError,
+    marketInsights,
+    marketInsightsLoading,
+    marketInsightsError,
+    chatWithAI,
+    isChatLoading,
+    chatError
+  } = useAI();
   
   // Only show metals data if we have real API data
   const metals: Metal[] = [];
@@ -109,6 +125,35 @@ const Dashboard: React.FC = () => {
   }
 
   const timeframes = ['1H', '4H', '1D', '1W', '1M', '3M', '1Y'];
+
+  // Handle AI chat
+  const handleAiQuery = async () => {
+    if (!aiQuery.trim() || isChatLoading) return;
+    
+    setAiResponse('');
+    
+    try {
+      const response = await chatWithAI(aiQuery, {
+        selectedMetal,
+        currentPrices: prices,
+        timeframe: selectedTimeframe
+      });
+      
+      setAiResponse(response);
+      setAiQuery(''); // Clear input after successful response
+    } catch (error) {
+      console.error('Error sending AI query:', error);
+      setAiResponse('Sorry, I encountered an error. Please try again.');
+    }
+  };
+
+  // Handle Enter key in AI input
+  const handleAiInputKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleAiQuery();
+    }
+  };
 
   return (
     <motion.div 
@@ -435,57 +480,98 @@ const Dashboard: React.FC = () => {
               </div>
               
               <div className="space-y-3">
-                <motion.div 
-                  className={`rounded-lg p-3 transition-all duration-300 ${
-                    isDark 
-                      ? 'bg-gradient-to-r from-amber-900/20 to-yellow-900/20' 
-                      : 'bg-gradient-to-r from-amber-50 to-yellow-50'
-                  }`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                >
-                  <p className={`text-sm transition-colors duration-300 ${
-                    isDark ? 'text-gray-300' : 'text-slate-700'
-                  }`}>
-                    💡 Gold prices are showing strong upward momentum. Consider the 2.36% increase in today's trading.
-                  </p>
-                </motion.div>
+                {aiInsightsLoading ? (
+                  // Loading skeleton for insights
+                  [1, 2].map((index) => (
+                    <div
+                      key={index}
+                      className={`rounded-lg p-3 animate-pulse transition-all duration-300 ${
+                        isDark ? 'bg-gray-700' : 'bg-gray-200'
+                      }`}
+                    >
+                      <div className={`h-4 rounded ${isDark ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+                    </div>
+                  ))
+                ) : (
+                  aiInsights.map((insight, index) => (
+                    <motion.div 
+                      key={index}
+                      className={`rounded-lg p-3 transition-all duration-300 ${
+                        index === 0
+                          ? isDark 
+                            ? 'bg-gradient-to-r from-amber-900/20 to-yellow-900/20' 
+                            : 'bg-gradient-to-r from-amber-50 to-yellow-50'
+                          : isDark 
+                            ? 'bg-blue-900/20' 
+                            : 'bg-blue-50'
+                      }`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 + index * 0.1 }}
+                    >
+                      <p className={`text-sm transition-colors duration-300 ${
+                        isDark ? 'text-gray-300' : 'text-slate-700'
+                      }`}>
+                        {insight}
+                      </p>
+                    </motion.div>
+                  ))
+                )}
                 
-                <motion.div 
-                  className={`rounded-lg p-3 transition-all duration-300 ${
-                    isDark 
-                      ? 'bg-blue-900/20' 
-                      : 'bg-blue-50'
-                  }`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                >
-                  <p className={`text-sm transition-colors duration-300 ${
-                    isDark ? 'text-gray-300' : 'text-slate-700'
-                  }`}>
-                    📊 Silver is experiencing slight volatility. Historical data suggests potential recovery.
-                  </p>
-                </motion.div>
+                {/* AI Response Display */}
+                {aiResponse && (
+                  <motion.div 
+                    className={`rounded-lg p-3 border-l-4 border-amber-500 transition-all duration-300 ${
+                      isDark 
+                        ? 'bg-gray-700/50' 
+                        : 'bg-amber-50'
+                    }`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <p className={`text-sm transition-colors duration-300 ${
+                      isDark ? 'text-gray-300' : 'text-slate-700'
+                    }`}>
+                      🤖 {aiResponse}
+                    </p>
+                    <button
+                      onClick={() => setAiResponse('')}
+                      className={`mt-2 text-xs transition-colors duration-300 ${
+                        isDark ? 'text-gray-400 hover:text-gray-300' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      Clear
+                    </button>
+                  </motion.div>
+                )}
               </div>
               
               <div className="mt-4 flex items-center space-x-2">
                 <input
                   type="text"
+                  value={aiQuery}
+                  onChange={(e) => setAiQuery(e.target.value)}
+                  onKeyPress={handleAiInputKeyPress}
                   placeholder="Ask about market trends..."
+                  disabled={isChatLoading}
                   className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-300 ${
                     isDark 
-                      ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' 
-                      : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'
+                      ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400 disabled:opacity-50' 
+                      : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400 disabled:opacity-50'
                   }`}
                 />
                 <motion.button 
-                  className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors duration-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  onClick={handleAiQuery}
+                  disabled={isChatLoading || !aiQuery.trim()}
+                  className={`px-4 py-2 rounded-lg transition-colors duration-300 text-white ${
+                    isChatLoading || !aiQuery.trim()
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-amber-500 hover:bg-amber-600'
+                  }`}
+                  whileHover={{ scale: isChatLoading || !aiQuery.trim() ? 1 : 1.05 }}
+                  whileTap={{ scale: isChatLoading || !aiQuery.trim() ? 1 : 0.95 }}
                 >
-                  Ask
+                  {isChatLoading ? 'Thinking...' : 'Ask'}
                 </motion.button>
               </div>
             </motion.div>
@@ -541,56 +627,53 @@ const Dashboard: React.FC = () => {
               }`}>Market Insights</h3>
               
               <div className="space-y-3">
-                <motion.div 
-                  className="flex items-start space-x-3"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.6 }}
-                >
-                  <TrendingUp className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className={`text-sm font-medium transition-colors duration-300 ${
-                      isDark ? 'text-white' : 'text-slate-900'
-                    }`}>Bullish Trend</p>
-                    <p className={`text-xs transition-colors duration-300 ${
-                      isDark ? 'text-gray-400' : 'text-slate-500'
-                    }`}>Gold shows consistent upward movement</p>
-                  </div>
-                </motion.div>
-                
-                <motion.div 
-                  className="flex items-start space-x-3"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.7 }}
-                >
-                  <TrendingDown className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className={`text-sm font-medium transition-colors duration-300 ${
-                      isDark ? 'text-white' : 'text-slate-900'
-                    }`}>Silver Correction</p>
-                    <p className={`text-xs transition-colors duration-300 ${
-                      isDark ? 'text-gray-400' : 'text-slate-500'
-                    }`}>Minor pullback expected to stabilize</p>
-                  </div>
-                </motion.div>
-                
-                <motion.div 
-                  className="flex items-start space-x-3"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.8 }}
-                >
-                  <BarChart3 className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className={`text-sm font-medium transition-colors duration-300 ${
-                      isDark ? 'text-white' : 'text-slate-900'
-                    }`}>Volume Analysis</p>
-                    <p className={`text-xs transition-colors duration-300 ${
-                      isDark ? 'text-gray-400' : 'text-slate-500'
-                    }`}>Higher than average trading activity</p>
-                  </div>
-                </motion.div>
+                {!marketInsights ? (
+                  // Loading skeleton for market insights
+                  [1, 2, 3].map((index) => (
+                    <div key={index} className="flex items-start space-x-3">
+                      <div className={`w-4 h-4 mt-0.5 rounded animate-pulse ${isDark ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+                      <div className="flex-1 space-y-1">
+                        <div className={`h-4 rounded animate-pulse ${isDark ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+                        <div className={`h-3 rounded animate-pulse w-3/4 ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  marketInsights.insights.map((insight: any, index: number) => {
+                    const getIconAndColor = (title: string) => {
+                      const lowerTitle = title.toLowerCase();
+                      if (lowerTitle.includes('bull') || lowerTitle.includes('trend') || lowerTitle.includes('upward')) {
+                        return { icon: TrendingUp, color: 'text-green-500' };
+                      } else if (lowerTitle.includes('bear') || lowerTitle.includes('down') || lowerTitle.includes('correction')) {
+                        return { icon: TrendingDown, color: 'text-red-500' };
+                      } else {
+                        return { icon: BarChart3, color: 'text-blue-500' };
+                      }
+                    };
+                    
+                    const { icon: Icon, color } = getIconAndColor(insight.title);
+                    
+                    return (
+                      <motion.div 
+                        key={index}
+                        className="flex items-start space-x-3"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.6 + index * 0.1 }}
+                      >
+                        <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${color}`} />
+                        <div>
+                          <p className={`text-sm font-medium transition-colors duration-300 ${
+                            isDark ? 'text-white' : 'text-slate-900'
+                          }`}>{insight.title}</p>
+                          <p className={`text-xs transition-colors duration-300 ${
+                            isDark ? 'text-gray-400' : 'text-slate-500'
+                          }`}>{insight.description}</p>
+                        </div>
+                      </motion.div>
+                    );
+                  })
+                )}
               </div>
               
               <motion.div 
@@ -606,7 +689,7 @@ const Dashboard: React.FC = () => {
                 <p className={`text-xs transition-colors duration-300 ${
                   isDark ? 'text-gray-300' : 'text-slate-600'
                 }`}>
-                  💡 <strong>AI Recommendation:</strong> Consider dollar-cost averaging for long-term positions.
+                  💡 <strong>AI Recommendation:</strong> {marketInsights?.aiRecommendation || 'Consider dollar-cost averaging for long-term positions.'}
                 </p>
               </motion.div>
             </motion.div>

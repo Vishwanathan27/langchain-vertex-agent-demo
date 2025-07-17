@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-
-const API_BASE_URL = 'http://localhost:3000/api/metals';
-const WS_URL = 'ws://localhost:3001';
+import { ApiClient, API_ENDPOINTS } from '../config/api';
 
 interface PriceData {
   price: number;
@@ -34,82 +32,77 @@ export const useRealTimePrices = () => {
     try {
       setError(null);
       
-      const response = await fetch(`${API_BASE_URL}/live`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
+      const result = await ApiClient.get(API_ENDPOINTS.METALS.LIVE);
       
       if (!result.success) {
         throw new Error(result.error || 'API request failed');
       }
       
-      if (!result.data) {
+      if (!result.data?.data) {
         throw new Error('No data received from API');
       }
       
       // Only process metals that have valid data (no errors)
       const formattedData: Partial<RealTimePricesData> = {};
+      const apiData = result.data.data;
       
-      if (result.data.gold && result.data.gold.price) {
+      if (apiData.gold && apiData.gold.price) {
         formattedData.gold = {
-          price: result.data.gold.price,
-          change: result.data.gold.change ?? 0,
-          changePercent: result.data.gold.changePercent ?? 0,
-          high: result.data.gold.high ?? result.data.gold.price,
-          low: result.data.gold.low ?? result.data.gold.price,
+          price: apiData.gold.price,
+          change: apiData.gold.change ?? 0,
+          changePercent: apiData.gold.changePercent ?? 0,
+          high: apiData.gold.high ?? apiData.gold.price,
+          low: apiData.gold.low ?? apiData.gold.price,
           timestamp: new Date(),
-          price_gram_24k: result.data.gold.price_gram_24k,
-          price_gram_22k: result.data.gold.price_gram_22k,
-          price_gram_18k: result.data.gold.price_gram_18k,
-          per_ounce_price: result.data.gold.price
+          price_gram_24k: apiData.gold.price_gram_24k,
+          price_gram_22k: apiData.gold.price_gram_22k,
+          price_gram_18k: apiData.gold.price_gram_18k,
+          per_ounce_price: apiData.gold.price
         };
       }
       
-      if (result.data.silver && result.data.silver.price) {
+      if (apiData.silver && apiData.silver.price) {
         formattedData.silver = {
-          price: result.data.silver.price,
-          change: result.data.silver.change ?? 0,
-          changePercent: result.data.silver.changePercent ?? 0,
-          high: result.data.silver.high ?? result.data.silver.price,
-          low: result.data.silver.low ?? result.data.silver.price,
+          price: apiData.silver.price,
+          change: apiData.silver.change ?? 0,
+          changePercent: apiData.silver.changePercent ?? 0,
+          high: apiData.silver.high ?? apiData.silver.price,
+          low: apiData.silver.low ?? apiData.silver.price,
           timestamp: new Date(),
-          price_gram_24k: result.data.silver.price_gram_24k,
-          price_gram_22k: result.data.silver.price_gram_22k,
-          price_gram_18k: result.data.silver.price_gram_18k,
-          per_ounce_price: result.data.silver.price
+          price_gram_24k: apiData.silver.price_gram_24k,
+          price_gram_22k: apiData.silver.price_gram_22k,
+          price_gram_18k: apiData.silver.price_gram_18k,
+          per_ounce_price: apiData.silver.price
         };
       }
       
-      if (result.data.platinum && result.data.platinum.price) {
+      if (apiData.platinum && apiData.platinum.price) {
         formattedData.platinum = {
-          price: result.data.platinum.price,
-          change: result.data.platinum.change ?? 0,
-          changePercent: result.data.platinum.changePercent ?? 0,
-          high: result.data.platinum.high ?? result.data.platinum.price,
-          low: result.data.platinum.low ?? result.data.platinum.price,
+          price: apiData.platinum.price,
+          change: apiData.platinum.change ?? 0,
+          changePercent: apiData.platinum.changePercent ?? 0,
+          high: apiData.platinum.high ?? apiData.platinum.price,
+          low: apiData.platinum.low ?? apiData.platinum.price,
           timestamp: new Date(),
-          price_gram_24k: result.data.platinum.price_gram_24k,
-          price_gram_22k: result.data.platinum.price_gram_22k,
-          price_gram_18k: result.data.platinum.price_gram_18k,
-          per_ounce_price: result.data.platinum.price
+          price_gram_24k: apiData.platinum.price_gram_24k,
+          price_gram_22k: apiData.platinum.price_gram_22k,
+          price_gram_18k: apiData.platinum.price_gram_18k,
+          per_ounce_price: apiData.platinum.price
         };
       }
       
-      if (result.data.palladium && result.data.palladium.price) {
+      if (apiData.palladium && apiData.palladium.price) {
         formattedData.palladium = {
-          price: result.data.palladium.price,
-          change: result.data.palladium.change ?? 0,
-          changePercent: result.data.palladium.changePercent ?? 0,
-          high: result.data.palladium.high ?? result.data.palladium.price,
-          low: result.data.palladium.low ?? result.data.palladium.price,
+          price: apiData.palladium.price,
+          change: apiData.palladium.change ?? 0,
+          changePercent: apiData.palladium.changePercent ?? 0,
+          high: apiData.palladium.high ?? apiData.palladium.price,
+          low: apiData.palladium.low ?? apiData.palladium.price,
           timestamp: new Date(),
-          price_gram_24k: result.data.palladium.price_gram_24k,
-          price_gram_22k: result.data.palladium.price_gram_22k,
-          price_gram_18k: result.data.palladium.price_gram_18k,
-          per_ounce_price: result.data.palladium.price
+          price_gram_24k: apiData.palladium.price_gram_24k,
+          price_gram_22k: apiData.palladium.price_gram_22k,
+          price_gram_18k: apiData.palladium.price_gram_18k,
+          per_ounce_price: apiData.palladium.price
         };
       }
       
