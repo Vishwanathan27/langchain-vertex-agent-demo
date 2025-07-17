@@ -22,9 +22,6 @@ import GoldButton from './common/GoldButton';
 import HistoricalCalendar from './HistoricalCalendar';
 import PriceDisplayFilters from './filters/PriceDisplayFilters';
 
-// Effects
-import GoldParticles from './effects/GoldParticles';
-
 const Dashboard: React.FC = () => {
   // State Management
   const [selectedMetal, setSelectedMetal] = useState<string>('gold');
@@ -90,13 +87,6 @@ const Dashboard: React.FC = () => {
       }}
       transition={{ duration: 0.5 }}
     >
-      {/* Gold Particles Effect */}
-      <GoldParticles 
-        count={30} 
-        intensity="light" 
-        trigger={selectedMetal === 'gold'} 
-      />
-
       {/* Header */}
       <DashboardHeader 
         showFilters={showFilters}
@@ -204,6 +194,33 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Gold Dust Animation Overlay */}
+      {isDark && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          {Array.from({ length: 20 }, (_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 bg-amber-400/30 rounded-full"
+              initial={{
+                x: Math.random() * window.innerWidth,
+                y: -10,
+                opacity: 0
+              }}
+              animate={{
+                y: window.innerHeight + 10,
+                opacity: [0, 1, 0]
+              }}
+              transition={{
+                duration: Math.random() * 3 + 2,
+                repeat: Infinity,
+                delay: Math.random() * 5,
+                ease: "linear"
+              }}
+            />
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 };

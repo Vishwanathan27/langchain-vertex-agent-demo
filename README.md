@@ -31,12 +31,14 @@ SwarnaAI is a comprehensive real-time precious metals price tracking and analysi
 ### Key Features
 
 - **Real-time Price Tracking**: Live precious metals prices with WebSocket updates
-- **Multi-Provider Support**: Seamless switching between API providers
+- **Multi-Provider Support**: Seamless switching between API providers (MetalPriceAPI, GoldAPI)
 - **Database-Only Mode**: Production-ready offline mode with scheduled sync
-- **AI-Powered Insights**: Google Vertex AI integration for market analysis
+- **AI-Powered Insights**: Google Vertex AI (Gemini 2.5-flash) for intelligent market analysis
+- **Smart AI Assistant**: Context-aware chat and automated market insights
+- **1-Year Historical Data**: Complete historical price tracking and analysis
 - **Role-Based Access Control**: Secure authentication with user roles
-- **Comprehensive API**: RESTful API with Swagger documentation
-- **Responsive Design**: Mobile-first responsive interface
+- **Gold-Focused Design**: Premium gold-themed UI with smooth animations
+- **Responsive Design**: Mobile-first responsive interface with modern UX
 - **Dark Mode**: Theme switching with persistent preferences
 
 ## Technology Stack
@@ -218,6 +220,33 @@ GET /api/metals/gold/historical/20240115
 
 # Get chart data
 GET /api/metals/gold/chart/1D
+
+# Get 1-year timeframe data
+GET /api/metals/timeframe?start_date=2024-01-01&end_date=2025-01-01
+
+# Convert between metals
+POST /api/metals/convert
+{
+  "from": "XAU",
+  "to": "INR",
+  "amount": 1
+}
+```
+
+### AI API
+```bash
+# Get AI assistant insights
+GET /api/metals/ai/assistant
+
+# Get market insights
+GET /api/metals/ai/market-insights
+
+# Chat with AI
+POST /api/metals/ai/chat
+{
+  "query": "What is the gold trend?",
+  "context": { "selectedMetal": "gold" }
+}
 ```
 
 ### Admin API
